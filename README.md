@@ -1,0 +1,68 @@
+# Koopman-JEPA
+
+Experimentos controlados para estudiar si una arquitectura JEPA temporal puede aprender
+subespacios finitos invariantes bajo Koopman y sus dinámicas espectrales.
+
+El protocolo científico está documentado en
+[RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación actual cubre la **Fase 0**:
+una replicación mecanística reducida del caso de invariantes de Koopman
+(`lambda = 1`) presentado por Ruiz-Morales et al. en AAAI 2026.
+
+## Qué comprueba la Fase 0
+
+- Regímenes sintéticos temporalmente persistentes e inmiscibles.
+- Encoder temporal online y target encoder actualizado por EMA.
+- Predictor lineal con inicialización identidad o aleatoria.
+- Diagnósticos de colapso y rango efectivo.
+- Separación de regímenes en test.
+- Acción y espectro del predictor sobre el span de los centroides latentes.
+
+No se considera suficiente una loss predictiva baja ni una visualización t-SNE.
+
+## Instalación
+
+El proyecto usa [uv](https://docs.astral.sh/uv/) para fijar un entorno reproducible:
+
+```bash
+uv sync --extra dev
+```
+
+## Tests
+
+```bash
+uv run pytest
+uv run ruff check .
+```
+
+## Ejecutar la Fase 0
+
+Predictor inicializado en identidad:
+
+```bash
+uv run koopman-jepa-phase0 \
+  --config configs/phase0_smoke.yaml \
+  --predictor-init identity \
+  --seed 0
+```
+
+Control con inicialización aleatoria:
+
+```bash
+uv run koopman-jepa-phase0 \
+  --config configs/phase0_smoke.yaml \
+  --predictor-init random \
+  --seed 0
+```
+
+Cada ejecución crea un directorio bajo `runs/phase0/` con configuración, historia,
+métricas, checkpoint y figuras. `runs/` se mantiene fuera de Git para no versionar
+artefactos pesados.
+
+## Gate 0
+
+No se avanza al ciclo de cuatro fases hasta comprobar que:
+
+1. la representación no colapsa;
+2. los regímenes son separables fuera de muestra;
+3. el predictor identidad actúa cerca de la identidad sobre el span latente activo;
+4. entendemos cómo cambia el resultado con inicialización aleatoria.
