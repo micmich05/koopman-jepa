@@ -190,10 +190,11 @@ def collect_embeddings(
     labels: list[np.ndarray] = []
 
     model.eval()
-    for context, _, batch_labels in loader:
+    for context, target, batch_labels in loader:
         context = context.to(device)
+        target = target.to(device)
         online_embeddings.append(model.online_encoder(context).cpu().numpy())
-        target_embeddings.append(model.target_encoder(context).cpu().numpy())
+        target_embeddings.append(model.target_encoder(target).cpu().numpy())
         labels.append(batch_labels.numpy())
 
     return (
