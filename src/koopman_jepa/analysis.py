@@ -6,6 +6,8 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def regime_centroids(
@@ -83,7 +85,10 @@ def linear_probe_accuracy(
     test_labels: np.ndarray,
     seed: int,
 ) -> float:
-    probe = LogisticRegression(max_iter=2_000, random_state=seed)
+    probe = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(max_iter=2_000, random_state=seed),
+    )
     probe.fit(train_embeddings, train_labels)
     return float(probe.score(test_embeddings, test_labels))
 

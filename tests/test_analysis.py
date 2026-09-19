@@ -1,6 +1,10 @@
 import numpy as np
 
-from koopman_jepa.analysis import evaluate_phase0, predictor_subspace_statistics
+from koopman_jepa.analysis import (
+    evaluate_phase0,
+    linear_probe_accuracy,
+    predictor_subspace_statistics,
+)
 
 
 def test_identity_is_recovered_on_oracle_centroid_span() -> None:
@@ -40,3 +44,20 @@ def test_collapsed_centroids_report_undefined_active_metrics() -> None:
     assert metrics["active_invariance_error"] is None
     assert metrics["active_identity_error"] is None
     assert metrics["active_eigenvalue_one_error"] is None
+
+
+def test_linear_probe_is_invariant_to_global_embedding_scale() -> None:
+    labels = np.repeat(np.arange(3), 8)
+    embeddings = np.eye(3)[labels]
+
+    original_accuracy = linear_probe_accuracy(embeddings, labels, embeddings, labels, seed=0)
+    scaled_accuracy = linear_probe_accuracy(
+        embeddings * 1e-6,
+        labels,
+        embeddings * 1e-6,
+        labels,
+        seed=0,
+    )
+
+    assert original_accuracy == 1.0
+    assert scaled_accuracy == original_accuracy
