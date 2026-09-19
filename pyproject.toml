@@ -19,6 +19,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "ipykernel>=6.30",
+  "nbconvert>=7.16",
   "pytest>=8.3",
   "ruff>=0.9",
 ]
