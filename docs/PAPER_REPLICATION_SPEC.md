@@ -620,6 +620,63 @@ does not prove that the latent coordinate system itself is stable, does not
 measure dataset-sampling variability, and does not reproduce the paper's
 clustering or operator diagnostics. Test was not instantiated or consulted.
 
+### Frozen linear-identity held-out protocol (not yet executed)
+
+`configs/paper_linear_identity_heldout_smoke.yaml` freezes the first held-out
+evaluation before any test sample is instantiated. This is a local smoke
+evaluation on 8 test masters per regime, not the paper-scale run with 1,000
+test masters per regime.
+
+The five training seeds and their constraint-selected epochs are fixed in
+sweep order as `(5:10, 6:10, 7:10, 8:8, 9:10)`. Each model must first be
+replayed using train and validation only. Before test is constructed, the
+implementation must verify all of the following:
+
+- the selected epoch exactly matches the frozen epoch for that seed;
+- the captured state contains online encoder, EMA target encoder, and linear
+  predictor parameters;
+- loading the captured state reproduces its validation loss, embedding
+  dispersion, and effective rank within absolute tolerance `1e-8`;
+- no test dataset or test loader is created during checkpoint replay.
+
+Failure of any replay check aborts the held-out run. It does not trigger a new
+checkpoint choice.
+
+For each verified checkpoint, test contexts are embedded by the online
+encoder. K-means is fitted to those raw 32-dimensional embeddings with
+`K = 18`, `n_init = 20`, and `random_state = 0`. Test labels are not used to
+fit K-means. Let `M` be the learned `32 × 32` linear predictor and let `c_i`
+be the 18 K-means centroids. The preregistered diagnostics are:
+
+```text
+relative identity error = ||M - I||_F / ||M||_F
+relative skew norm      = ||M - M^T||_F / ||M||_F
+centroid action error   = mean_i ||M c_i - c_i||_2 / ||c_i||_2
+near-identity count     = #{lambda in eig(M): |lambda - 1| <= 0.05}
+```
+
+The local gate requires **every one** of the five checkpoints to satisfy:
+
+- relative identity error at most `0.05`;
+- relative skew norm at most `0.05`;
+- mean centroid action error at most `0.02`;
+- at least 18 eigenvalues within complex distance `0.05` of 1;
+- test embedding effective rank at least `4.0`;
+- all reported values finite.
+
+The first three thresholds are the provisional linear-identity criteria
+already stated in this specification. The eigenvalue tolerance makes the
+previous phrase “visibly concentrated near 1” executable; it is a local rule,
+not a tolerance reported by the authors. Test effective rank is an explicit
+anti-collapse guard. Per-seed values plus mean and standard deviation will be
+reported; the aggregate decision is a conjunction, so averaging cannot hide a
+failed seed.
+
+K-means label purity may be reported as a non-gating diagnostic, but it cannot
+be compared directly with the paper's `65.48%` result because that number comes
+from the separate nonlinear-MLP predictor experiment. No threshold may be
+changed after opening test.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -754,9 +811,7 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze the held-out evaluation and checkpoint-persistence protocol before
-opening test. The next implementation must reproduce the constraint-selected
-model state for each seed, verify its train/validation metrics, and predefine
-the linear-operator diagnostics to compute on test. Do not instantiate test
-until that code and its decision rules are committed. Keep the reduced Phase 0
-pipeline unchanged.
+Implement and unit-test deterministic checkpoint capture/replay plus the
+linear-operator metrics defined by the frozen held-out protocol. Do not
+instantiate test until that implementation and an unexecuted notebook are
+committed. Keep the reduced Phase 0 pipeline unchanged.

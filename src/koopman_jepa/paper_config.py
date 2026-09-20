@@ -181,6 +181,63 @@ class PaperScaleInvariantStabilityGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PaperCheckpointReplayConfig:
+    expected_epochs: tuple[int, ...] = (10, 10, 10, 8, 10)
+    metric_absolute_tolerance: float = 1e-8
+
+    def validate(self) -> None:
+        if not self.expected_epochs:
+            raise ValueError("expected checkpoint epochs must not be empty")
+        if any(epoch < 1 for epoch in self.expected_epochs):
+            raise ValueError("expected checkpoint epochs must be positive")
+        if self.metric_absolute_tolerance < 0.0:
+            raise ValueError("metric_absolute_tolerance must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearIdentityEvaluationConfig:
+    kmeans_clusters: int = 18
+    kmeans_n_init: int = 20
+    kmeans_seed: int = 0
+    eigenvalue_tolerance: float = 0.05
+
+    def validate(self) -> None:
+        if self.kmeans_clusters < 2:
+            raise ValueError("kmeans_clusters must be at least two")
+        if self.kmeans_n_init < 1:
+            raise ValueError("kmeans_n_init must be positive")
+        if self.kmeans_seed < 0:
+            raise ValueError("kmeans_seed must be non-negative")
+        if not 0.0 < self.eigenvalue_tolerance < 1.0:
+            raise ValueError("eigenvalue_tolerance must be between zero and one")
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearIdentityHeldoutGateConfig:
+    max_relative_identity_error: float = 0.05
+    max_relative_skew_norm: float = 0.05
+    max_mean_centroid_action_error: float = 0.02
+    min_near_identity_eigenvalues: int = 18
+    min_test_effective_rank: float = 4.0
+
+    def validate(self) -> None:
+        for name, value in (
+            ("max_relative_identity_error", self.max_relative_identity_error),
+            ("max_relative_skew_norm", self.max_relative_skew_norm),
+            (
+                "max_mean_centroid_action_error",
+                self.max_mean_centroid_action_error,
+            ),
+        ):
+            if not 0.0 < value < 1.0:
+                raise ValueError(f"{name} must be between zero and one")
+        if self.min_near_identity_eigenvalues < 1:
+            raise ValueError("min_near_identity_eigenvalues must be positive")
+        if self.min_test_effective_rank < 1.0:
+            raise ValueError("min_test_effective_rank must be at least one")
+
+
+@dataclass(frozen=True, slots=True)
 class PaperExperimentConfig:
     data: PaperDataConfig
     model: PaperModelConfig
@@ -252,6 +309,40 @@ class PaperScaleInvariantSeedStabilityConfig:
             raise ValueError("final_window must not exceed training epochs")
 
 
+@dataclass(frozen=True, slots=True)
+class PaperLinearIdentityHeldoutConfig:
+    data: PaperDataConfig
+    model: PaperModelConfig
+    train: PaperTrainConfig
+    checkpoint_gate: PaperValidationGateConfig
+    sweep: PaperSeedSweepConfig
+    replay: PaperCheckpointReplayConfig
+    evaluation: PaperLinearIdentityEvaluationConfig
+    gate: PaperLinearIdentityHeldoutGateConfig
+
+    def validate(self) -> None:
+        self.data.validate()
+        self.model.validate()
+        self.train.validate()
+        self.checkpoint_gate.validate()
+        self.sweep.validate()
+        self.replay.validate()
+        self.evaluation.validate()
+        self.gate.validate()
+        if self.model.predictor_kind != "linear":
+            raise ValueError("held-out identity evaluation requires a linear predictor")
+        if self.model.linear_initialization != "identity":
+            raise ValueError("held-out identity evaluation requires identity initialization")
+        if len(self.replay.expected_epochs) != len(self.sweep.seeds):
+            raise ValueError("expected checkpoint epochs must align with sweep seeds")
+        if any(epoch > self.train.epochs for epoch in self.replay.expected_epochs):
+            raise ValueError("expected checkpoint epochs must not exceed training epochs")
+        if self.gate.min_near_identity_eigenvalues > self.model.latent_dim:
+            raise ValueError("min_near_identity_eigenvalues must not exceed latent_dim")
+        if self.gate.min_test_effective_rank > self.model.latent_dim:
+            raise ValueError("min_test_effective_rank must not exceed latent_dim")
+
+
 def load_paper_experiment_config(path: str | Path) -> PaperExperimentConfig:
     with Path(path).open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
@@ -313,6 +404,37 @@ def load_paper_scale_invariant_seed_stability_config(
         stability_gate=PaperScaleInvariantStabilityGateConfig(
             **raw.get("stability_gate", {})
         ),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_linear_identity_heldout_config(
+    path: str | Path,
+) -> PaperLinearIdentityHeldoutConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (5, 6, 7, 8, 9))
+    expected_epochs = raw.get("replay", {}).get(
+        "expected_epochs",
+        (10, 10, 10, 8, 10),
+    )
+    replay_raw = {
+        **raw.get("replay", {}),
+        "expected_epochs": tuple(expected_epochs),
+    }
+    config = PaperLinearIdentityHeldoutConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        replay=PaperCheckpointReplayConfig(**replay_raw),
+        evaluation=PaperLinearIdentityEvaluationConfig(
+            **raw.get("evaluation", {})
+        ),
+        gate=PaperLinearIdentityHeldoutGateConfig(**raw.get("gate", {})),
     )
     config.validate()
     return config

@@ -61,8 +61,11 @@ protocolo fue ejecutado en
 y pasa por margen estrecho: CV relativo 0.239 frente al máximo 0.25, con CV
 absoluto diagnóstico 0.251. Las cinco seeds producen checkpoints elegibles y
 los controles de brecha, dispersión y rango pasan. Esto habilita diseñar y
-congelar la evaluación held-out; todavía no reproduce los resultados del paper
-ni autoriza consultar test sin ese protocolo previo.
+congelar la evaluación held-out. El protocolo lineal-identidad ya está fijado
+en
+[`paper_linear_identity_heldout_smoke.yaml`](configs/paper_linear_identity_heldout_smoke.yaml),
+pero todavía no fue implementado ni ejecutado: test continúa cerrado. Este
+smoke test todavía no reproduce los resultados del paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

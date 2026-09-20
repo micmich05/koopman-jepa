@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -5,6 +6,7 @@ import numpy as np
 from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
     load_paper_experiment_config,
+    load_paper_linear_identity_heldout_config,
     load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
@@ -91,3 +93,45 @@ def test_scale_invariant_stability_config_uses_fresh_seeds() -> None:
         config.stability_gate.max_validation_loss_ratio_coefficient_of_variation
         == 0.25
     )
+
+
+def test_linear_identity_heldout_config_freezes_replay_and_evaluation() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_identity_heldout_smoke.yaml"
+    )
+
+    config = load_paper_linear_identity_heldout_config(path)
+
+    assert config.data.base_seed == 0
+    assert config.data.test_per_regime == 8
+    assert config.model.predictor_kind == "linear"
+    assert config.model.linear_initialization == "identity"
+    assert config.sweep.seeds == (5, 6, 7, 8, 9)
+    assert config.replay.expected_epochs == (10, 10, 10, 8, 10)
+    assert config.replay.metric_absolute_tolerance == 1e-8
+    assert config.evaluation.kmeans_clusters == 18
+    assert config.evaluation.kmeans_n_init == 20
+    assert config.evaluation.eigenvalue_tolerance == 0.05
+    assert config.gate.max_relative_identity_error == 0.05
+    assert config.gate.max_relative_skew_norm == 0.05
+    assert config.gate.max_mean_centroid_action_error == 0.02
+    assert config.gate.min_near_identity_eigenvalues == 18
+    assert config.gate.min_test_effective_rank == 4.0
+
+
+def test_linear_identity_heldout_config_rejects_random_predictor() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_identity_heldout_smoke.yaml"
+    )
+    config = load_paper_linear_identity_heldout_config(path)
+    invalid = replace(
+        config,
+        model=replace(config.model, linear_initialization="xavier_uniform"),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "identity initialization"):
+        invalid.validate()
