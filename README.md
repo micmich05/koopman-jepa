@@ -170,6 +170,11 @@ menos que el encoder directo; el rango de las medias por seed es
 `45.23–51.22%`. La lectura de dos etapas queda descartada como explicación de
 la brecha con el paper.
 
+La siguiente sensibilidad está congelada en
+[`paper_mlp_low_lr_development.yaml`](configs/paper_mlp_low_lr_development.yaml):
+vuelve al mejor encoder directo y cambia únicamente el learning rate de
+`3e-4` a `1e-4`. Todavía no fue ejecutada.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

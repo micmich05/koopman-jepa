@@ -1,0 +1,56 @@
+data:
+  master_length: 1024
+  context_length: 768
+  shift: 256
+  train_per_regime: 64
+  val_per_regime: 32
+  test_per_regime: 64
+  base_seed: 1
+  normalization: per_sequence
+
+model:
+  latent_dim: 32
+  input_length: 768
+  encoder_projection: direct
+  predictor_kind: mlp
+  linear_initialization: identity
+  mlp_depth: one_hidden
+  ema_decay: 0.996
+
+train:
+  optimizer: adamw
+  learning_rate: 0.0001
+  weight_decay: 0.0
+  batch_size: 64
+  epochs: 20
+  seed: 10
+  device: cpu
+  num_workers: 0
+
+checkpoint_gate:
+  final_window: 2
+  max_validation_loss_ratio: 0.50
+  max_validation_train_loss_ratio: 4.0
+  min_validation_embedding_std_ratio: 0.10
+  min_validation_effective_rank: 4.0
+
+sweep:
+  seeds: [10, 11, 12, 13, 14]
+
+stability_gate:
+  max_worst_validation_loss_ratio: 0.50
+  max_worst_validation_train_loss_ratio: 4.0
+  max_validation_loss_ratio_coefficient_of_variation: 0.25
+  min_worst_validation_embedding_std_ratio: 0.10
+  min_worst_validation_effective_rank: 4.0
+
+clustering:
+  clusters: 18
+  n_init: 20
+  random_states: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+clustering_gate:
+  min_overall_mean_purity: 0.60
+  min_worst_seed_mean_purity: 0.55
+  max_seed_mean_purity_coefficient_of_variation: 0.10
+  max_within_seed_purity_std: 0.03

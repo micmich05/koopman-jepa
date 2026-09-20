@@ -1075,11 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze a one-factor optimization sensitivity using the best architecture seen
-so far: direct encoder plus one-hidden predictor. Change only AdamW learning
-rate from `3e-4` to `1e-4`; keep data, seeds, 20 epochs, EMA, checkpoint policy,
-and clustering aggregation fixed. Commit the protocol before execution and do
-not construct test.
+Prepare a validation-only notebook for the frozen lower-learning-rate
+sensitivity. It uses the best architecture seen so far, direct encoder plus
+one-hidden predictor, and changes only AdamW learning rate from `3e-4` to
+`1e-4`. Keep data, seeds, 20 epochs, EMA, checkpoint policy, and clustering
+aggregation fixed. Commit the notebook before execution and do not construct
+test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1235,3 +1236,8 @@ CV is `0.040` and worst K-means standard deviation is `1.38%`. All minimum-loss
 checkpoints have effective rank below 4 (`1.22–3.36`). The reconciled appendix
 encoder is therefore not a plausible explanation for the missing clustering
 quality under the current optimization. Test remains untouched.
+
+The optimization sensitivity is frozen in
+`configs/paper_mlp_low_lr_development.yaml`. A configuration test requires
+parsed equality with the direct one-hidden condition after replacing only
+`train.learning_rate` with `1e-4`. It has not been executed.

@@ -313,3 +313,22 @@ def test_mlp_two_stage_sensitivity_changes_only_encoder_projection() -> None:
     assert two_stage.stability_gate == direct.stability_gate
     assert two_stage.clustering == direct.clustering
     assert two_stage.clustering_gate == direct.clustering_gate
+
+
+def test_mlp_low_lr_sensitivity_changes_only_learning_rate() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    baseline = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_one_hidden_development.yaml"
+    )
+    low_lr = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_low_lr_development.yaml"
+    )
+
+    assert low_lr.data == baseline.data
+    assert low_lr.model == baseline.model
+    assert low_lr.train == replace(baseline.train, learning_rate=0.0001)
+    assert low_lr.checkpoint_gate == baseline.checkpoint_gate
+    assert low_lr.sweep == baseline.sweep
+    assert low_lr.stability_gate == baseline.stability_gate
+    assert low_lr.clustering == baseline.clustering
+    assert low_lr.clustering_gate == baseline.clustering_gate
