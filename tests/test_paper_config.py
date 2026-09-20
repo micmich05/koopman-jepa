@@ -5,6 +5,7 @@ import numpy as np
 
 from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
+    PaperTrainConfig,
     load_paper_experiment_config,
     load_paper_linear_identity_heldout_config,
     load_paper_linear_random_control_config,
@@ -41,6 +42,13 @@ def test_optimization_config_rejects_invalid_values() -> None:
     invalid = PaperOptimizationConfig(steps=0)
 
     with np.testing.assert_raises_regex(ValueError, "steps must be positive"):
+        invalid.validate()
+
+
+def test_train_config_rejects_non_positive_gradient_clip() -> None:
+    invalid = PaperTrainConfig(max_gradient_norm=0.0)
+
+    with np.testing.assert_raises_regex(ValueError, "max_gradient_norm"):
         invalid.validate()
 
 
@@ -355,3 +363,22 @@ def test_mlp_medium_scale_changes_only_split_sizes() -> None:
     assert medium.stability_gate == baseline.stability_gate
     assert medium.clustering == baseline.clustering
     assert medium.clustering_gate == baseline.clustering_gate
+
+
+def test_mlp_gradient_clip_probe_changes_only_clip_and_seed_sweep() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    baseline = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_medium_scale_development.yaml"
+    )
+    probe = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_gradient_clip_probe.yaml"
+    )
+
+    assert probe.data == baseline.data
+    assert probe.model == baseline.model
+    assert probe.train == replace(baseline.train, max_gradient_norm=1.0)
+    assert probe.checkpoint_gate == baseline.checkpoint_gate
+    assert probe.sweep.seeds == (10,)
+    assert probe.stability_gate == baseline.stability_gate
+    assert probe.clustering == baseline.clustering
+    assert probe.clustering_gate == baseline.clustering_gate

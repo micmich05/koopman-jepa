@@ -67,6 +67,7 @@ class PaperTrainConfig:
     seed: int = 0
     device: str = "cpu"
     num_workers: int = 0
+    max_gradient_norm: float | None = None
 
     def validate(self) -> None:
         if self.optimizer != "adamw":
@@ -85,6 +86,8 @@ class PaperTrainConfig:
             raise ValueError("device must not be empty")
         if self.num_workers < 0:
             raise ValueError("num_workers must be non-negative")
+        if self.max_gradient_norm is not None and self.max_gradient_norm <= 0.0:
+            raise ValueError("max_gradient_norm must be positive when provided")
 
 
 @dataclass(frozen=True, slots=True)

@@ -237,6 +237,7 @@ def paper_train_step(
     context: torch.Tensor,
     target: torch.Tensor,
     optimizer: torch.optim.Optimizer,
+    max_gradient_norm: float | None = None,
 ) -> PaperStepMetrics:
     """Run one optimizer step followed by the published EMA target update."""
 
@@ -247,6 +248,8 @@ def paper_train_step(
         )
     if context.shape[0] == 0:
         raise ValueError("the batch must contain at least one sample")
+    if max_gradient_norm is not None and max_gradient_norm <= 0.0:
+        raise ValueError("max_gradient_norm must be positive when provided")
 
     model.train()
     optimizer.zero_grad(set_to_none=True)
@@ -260,6 +263,12 @@ def paper_train_step(
     online_gradient_norm = _gradient_norm(online_parameters)
     predictor_gradient_norm = _gradient_norm(predictor_parameters)
     embedding_std_mean, effective_rank = embedding_spread(online_embedding)
+
+    if max_gradient_norm is not None:
+        nn.utils.clip_grad_norm_(
+            (*online_parameters, *predictor_parameters),
+            max_norm=max_gradient_norm,
+        )
 
     optimizer.step()
     model.update_target()
@@ -458,7 +467,13 @@ def _run_paper_train_validation(
         for context, target, _ in train_loader:
             context = context.to(device)
             target = target.to(device)
-            step = paper_train_step(model, context, target, optimizer)
+            step = paper_train_step(
+                model,
+                context,
+                target,
+                optimizer,
+                max_gradient_norm=config.max_gradient_norm,
+            )
             batch_size = context.shape[0]
             gradient_sample_count += batch_size
             online_gradient_total += step.online_gradient_norm * batch_size

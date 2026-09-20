@@ -115,6 +115,48 @@ def test_one_batch_smoke_updates_online_predictor_then_ema_target() -> None:
         assert torch.allclose(ema_target, expected, atol=1e-7)
 
 
+def test_train_step_applies_global_gradient_norm_clipping() -> None:
+    torch.manual_seed(8)
+    model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
+    optimizer = torch.optim.SGD(paper_trainable_parameters(model), lr=1e-4)
+    context = torch.randn(2, 1, 768)
+    target = torch.randn(2, 1, 768)
+
+    metrics = paper_train_step(
+        model,
+        context,
+        target,
+        optimizer,
+        max_gradient_norm=0.01,
+    )
+    clipped_norm = sum(
+        float(parameter.grad.detach().square().sum())
+        for parameter in paper_trainable_parameters(model)
+        if parameter.grad is not None
+    ) ** 0.5
+
+    pre_clip_norm = math.hypot(
+        metrics.online_gradient_norm,
+        metrics.predictor_gradient_norm,
+    )
+    assert pre_clip_norm > 0.01
+    assert clipped_norm <= 0.010001
+
+
+def test_train_step_rejects_non_positive_gradient_clip() -> None:
+    model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
+    optimizer = torch.optim.SGD(paper_trainable_parameters(model), lr=1e-4)
+
+    with np.testing.assert_raises_regex(ValueError, "max_gradient_norm"):
+        paper_train_step(
+            model,
+            torch.randn(2, 1, 768),
+            torch.randn(2, 1, 768),
+            optimizer,
+            max_gradient_norm=0.0,
+        )
+
+
 def test_fixed_batch_runner_uses_frozen_optimizer_and_step_count() -> None:
     torch.manual_seed(9)
     model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
