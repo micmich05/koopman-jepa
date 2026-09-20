@@ -21,6 +21,14 @@ convierte `Sine_MedFreq` y `Sine_LowAmp` en la misma distribución observable.
 La especificación, los parámetros publicados y cada supuesto local están en
 [`PAPER_REPLICATION_SPEC.md`](docs/PAPER_REPLICATION_SPEC.md).
 
+También está implementada la arquitectura temporal publicada, con tests para
+su geometría convolucional, predictor y actualización EMA. Como el texto y el
+apéndice se contradicen en la proyección del encoder y la profundidad del MLP,
+[`paper_model.py`](src/koopman_jepa/paper_model.py) conserva cada interpretación
+como una variante con nombre. Aún no hay un resultado de entrenamiento del
+modelo completo: el próximo paso es fijar y probar el protocolo de optimización
+con un smoke test de un solo batch.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

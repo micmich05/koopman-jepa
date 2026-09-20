@@ -8,7 +8,8 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset audited and preprocessing conditions frozen; model pending
+- Implementation status: dataset audited, preprocessing conditions frozen, and
+  model variants implemented; training protocol pending
 
 Primary sources:
 
@@ -297,6 +298,33 @@ The most plausible encoder interpretations are therefore:
 
 Neither choice should be silently selected. Both should be implemented as named
 sensitivity variants unless the authors clarify the intended architecture.
+
+### Frozen local model variants
+
+The implementation in `src/koopman_jepa/paper_model.py` maps the published and
+ambiguous cases to explicit names:
+
+| Option | Local name | Implemented architecture |
+|---|---|---|
+| Main-text encoder | `direct` | `6144 -> 32` |
+| Reconciled appendix encoder | `two_stage` | `6144 -> 64 -> 32`, with an intermediate ReLU |
+| Linear predictor, primary | `linear` + `identity` | bias-free `32 -> 32`, initialized to the identity |
+| Linear predictor, control | `linear` + `xavier_uniform` | bias-free `32 -> 32`, Xavier-uniform initialization |
+| MLP prose reading | `mlp` + `one_hidden` | `32 -> 64 -> 32`, with one hidden ReLU |
+| MLP table reading | `mlp` + `two_hidden` | `32 -> 64 -> 64 -> 32`, with two hidden ReLUs |
+
+`direct` is the primary encoder condition because it follows the main text and
+produces the stated 32-dimensional representation directly. `two_stage` is a
+sensitivity reconstruction, not an architecture explicitly written in full in
+the paper. Likewise, Xavier-uniform is a reproducible local choice for the
+random-initialization control; the paper does not identify its random
+initialization distribution.
+
+The online and target encoders start with identical parameters. Target
+parameters are frozen with respect to gradient updates and are moved after each
+optimizer step using the published EMA decay `0.996`. Structural tests lock the
+convolutional geometry, projection shapes, predictor variants, target freezing,
+and EMA calculation before any result-producing training run.
 
 ## Training details absent from the paper
 
