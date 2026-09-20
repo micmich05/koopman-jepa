@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from statistics import fmean
+from statistics import fmean, pstdev
 
 import torch
 from torch import nn
@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader, Dataset
 from .paper_config import (
     PaperOptimizationConfig,
     PaperOverfitGateConfig,
+    PaperSeedStabilityGateConfig,
+    PaperSeedSweepConfig,
     PaperTrainConfig,
     PaperValidationGateConfig,
 )
@@ -79,6 +81,48 @@ class PaperValidationGateResult:
     final_validation_effective_rank: float
     loss_passed: bool
     generalization_gap_passed: bool
+    spread_passed: bool
+    rank_passed: bool
+    passed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PaperCheckpointSelection:
+    epoch: int
+    train_loss: float
+    validation_loss: float
+    validation_loss_ratio: float
+    validation_train_loss_ratio: float
+    validation_embedding_std: float
+    validation_embedding_std_ratio: float
+    validation_effective_rank: float
+
+
+@dataclass(frozen=True, slots=True)
+class PaperSeedSummary:
+    seed: int
+    checkpoint_epoch: int
+    train_loss: float
+    validation_loss: float
+    validation_loss_ratio: float
+    validation_train_loss_ratio: float
+    validation_embedding_std_ratio: float
+    validation_effective_rank: float
+
+
+@dataclass(frozen=True, slots=True)
+class PaperSeedStabilityGateResult:
+    all_checkpoints_selected: bool
+    all_finite: bool
+    mean_validation_loss: float
+    validation_loss_coefficient_of_variation: float
+    worst_validation_loss_ratio: float
+    worst_validation_train_loss_ratio: float
+    worst_validation_embedding_std_ratio: float
+    worst_validation_effective_rank: float
+    validation_loss_passed: bool
+    generalization_gap_passed: bool
+    variability_passed: bool
     spread_passed: bool
     rank_passed: bool
     passed: bool
@@ -453,6 +497,187 @@ def evaluate_validation_gate(
             all_finite
             and loss_passed
             and generalization_gap_passed
+            and spread_passed
+            and rank_passed
+        ),
+    )
+
+
+def select_validation_checkpoint(
+    history: list[PaperEpochMetrics],
+    config: PaperValidationGateConfig,
+) -> PaperCheckpointSelection | None:
+    """Select the lowest validation loss among constraint-eligible epochs."""
+
+    config.validate()
+    if len(history) < 2 or history[0].epoch != 0:
+        raise ValueError("history must start with untrained epoch zero")
+
+    initial = history[0]
+    candidates: list[PaperCheckpointSelection] = []
+    for row in history[1:]:
+        values = (
+            row.train_loss,
+            row.validation_loss,
+            row.validation_embedding_std,
+            row.validation_effective_rank,
+        )
+        if not all(math.isfinite(value) for value in values):
+            continue
+        validation_loss_ratio = row.validation_loss / max(
+            initial.validation_loss,
+            1e-12,
+        )
+        validation_train_loss_ratio = row.validation_loss / max(row.train_loss, 1e-12)
+        validation_embedding_std_ratio = row.validation_embedding_std / max(
+            initial.validation_embedding_std,
+            1e-12,
+        )
+        if validation_loss_ratio > config.max_validation_loss_ratio:
+            continue
+        if validation_train_loss_ratio > config.max_validation_train_loss_ratio:
+            continue
+        if (
+            validation_embedding_std_ratio
+            < config.min_validation_embedding_std_ratio
+        ):
+            continue
+        if row.validation_effective_rank < config.min_validation_effective_rank:
+            continue
+        candidates.append(
+            PaperCheckpointSelection(
+                epoch=row.epoch,
+                train_loss=row.train_loss,
+                validation_loss=row.validation_loss,
+                validation_loss_ratio=validation_loss_ratio,
+                validation_train_loss_ratio=validation_train_loss_ratio,
+                validation_embedding_std=row.validation_embedding_std,
+                validation_embedding_std_ratio=validation_embedding_std_ratio,
+                validation_effective_rank=row.validation_effective_rank,
+            )
+        )
+
+    if not candidates:
+        return None
+    return min(candidates, key=lambda candidate: (candidate.validation_loss, candidate.epoch))
+
+
+def summarize_seed_checkpoint(
+    seed: int,
+    selection: PaperCheckpointSelection,
+) -> PaperSeedSummary:
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
+    return PaperSeedSummary(
+        seed=seed,
+        checkpoint_epoch=selection.epoch,
+        train_loss=selection.train_loss,
+        validation_loss=selection.validation_loss,
+        validation_loss_ratio=selection.validation_loss_ratio,
+        validation_train_loss_ratio=selection.validation_train_loss_ratio,
+        validation_embedding_std_ratio=selection.validation_embedding_std_ratio,
+        validation_effective_rank=selection.validation_effective_rank,
+    )
+
+
+def evaluate_seed_stability_gate(
+    summaries: list[PaperSeedSummary],
+    sweep: PaperSeedSweepConfig,
+    config: PaperSeedStabilityGateConfig,
+) -> PaperSeedStabilityGateResult:
+    """Evaluate whether every seed yields a stable eligible checkpoint."""
+
+    sweep.validate()
+    config.validate()
+    expected_seeds = set(sweep.seeds)
+    observed_seeds = [summary.seed for summary in summaries]
+    all_checkpoints_selected = (
+        len(observed_seeds) == len(expected_seeds)
+        and len(set(observed_seeds)) == len(observed_seeds)
+        and set(observed_seeds) == expected_seeds
+    )
+    all_values = [
+        value
+        for summary in summaries
+        for value in (
+            summary.train_loss,
+            summary.validation_loss,
+            summary.validation_loss_ratio,
+            summary.validation_train_loss_ratio,
+            summary.validation_embedding_std_ratio,
+            summary.validation_effective_rank,
+        )
+    ]
+    all_finite = bool(all_values) and all(math.isfinite(value) for value in all_values)
+
+    if summaries:
+        validation_losses = [summary.validation_loss for summary in summaries]
+        mean_validation_loss = fmean(validation_losses)
+        validation_loss_coefficient_of_variation = pstdev(validation_losses) / max(
+            mean_validation_loss,
+            1e-12,
+        )
+        worst_validation_loss_ratio = max(
+            summary.validation_loss_ratio for summary in summaries
+        )
+        worst_validation_train_loss_ratio = max(
+            summary.validation_train_loss_ratio for summary in summaries
+        )
+        worst_validation_embedding_std_ratio = min(
+            summary.validation_embedding_std_ratio for summary in summaries
+        )
+        worst_validation_effective_rank = min(
+            summary.validation_effective_rank for summary in summaries
+        )
+    else:
+        mean_validation_loss = math.inf
+        validation_loss_coefficient_of_variation = math.inf
+        worst_validation_loss_ratio = math.inf
+        worst_validation_train_loss_ratio = math.inf
+        worst_validation_embedding_std_ratio = 0.0
+        worst_validation_effective_rank = 0.0
+
+    validation_loss_passed = (
+        worst_validation_loss_ratio <= config.max_worst_validation_loss_ratio
+    )
+    generalization_gap_passed = (
+        worst_validation_train_loss_ratio
+        <= config.max_worst_validation_train_loss_ratio
+    )
+    variability_passed = (
+        validation_loss_coefficient_of_variation
+        <= config.max_validation_loss_coefficient_of_variation
+    )
+    spread_passed = (
+        worst_validation_embedding_std_ratio
+        >= config.min_worst_validation_embedding_std_ratio
+    )
+    rank_passed = (
+        worst_validation_effective_rank
+        >= config.min_worst_validation_effective_rank
+    )
+    return PaperSeedStabilityGateResult(
+        all_checkpoints_selected=all_checkpoints_selected,
+        all_finite=all_finite,
+        mean_validation_loss=mean_validation_loss,
+        validation_loss_coefficient_of_variation=(
+            validation_loss_coefficient_of_variation
+        ),
+        worst_validation_loss_ratio=worst_validation_loss_ratio,
+        worst_validation_train_loss_ratio=worst_validation_train_loss_ratio,
+        worst_validation_embedding_std_ratio=worst_validation_embedding_std_ratio,
+        worst_validation_effective_rank=worst_validation_effective_rank,
+        validation_loss_passed=validation_loss_passed,
+        generalization_gap_passed=generalization_gap_passed,
+        variability_passed=variability_passed,
+        spread_passed=spread_passed,
+        rank_passed=rank_passed,
+        passed=(
+            all_checkpoints_selected
+            and all_finite
+            and validation_loss_passed
+            and generalization_gap_passed
+            and variability_passed
             and spread_passed
             and rank_passed
         ),

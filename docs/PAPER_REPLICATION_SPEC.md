@@ -10,7 +10,7 @@
 - Extended version: arXiv v2, 2026-01-23
 - Implementation status: dataset audited, preprocessing conditions frozen,
   model variants implemented, and both development gates passed; checkpoint
-  selection and seed-stability protocol pending before test evaluation
+  selection and seed-stability protocol frozen but not yet executed
 
 Primary sources:
 
@@ -487,6 +487,45 @@ This is evidence of increasing overfit, not collapse: validation dispersion
 retains 67.0% of its initial value, and effective rank bottoms at `17.656` on
 epoch 6 before recovering. Test evaluation remains closed until checkpoint
 selection and multi-seed stability are specified without reference to test.
+
+### Frozen checkpoint and seed-stability gate
+
+`configs/paper_seed_stability_smoke.yaml` reuses the exact same dataset,
+architecture, optimizer, and ten-epoch schedule. The raw dataset seed remains
+fixed at 0, while training seeds `0, 1, 2, 3, 4` vary model initialization and
+minibatch order. This isolates optimization variability from dataset-sampling
+variability. Test remains unused.
+
+Checkpoint selection is constrained rather than simply choosing the last epoch
+or the numerically smallest validation loss. An epoch is eligible only if:
+
+- validation loss is at most 50% of its epoch-0 baseline;
+- its individual validation/train loss ratio is at most 4;
+- validation embedding dispersion retains at least 10% of its baseline;
+- validation effective rank is at least 4;
+- all involved metrics are finite.
+
+Among eligible epochs, the checkpoint epoch is the one with the lowest
+validation loss; exact ties select the earlier epoch. Applied retrospectively
+to the already executed seed-0 history, this policy selects epoch 9
+(`validation loss = 0.00167994`, gap `3.411`) rather than epoch 10, whose lower
+validation loss comes with an ineligible gap of `4.467`. This observation
+motivates the policy but does not evaluate any test sample.
+
+The five-seed stability gate, frozen before running seeds 1–4, requires:
+
+- every requested seed to produce an eligible checkpoint;
+- every recorded checkpoint metric to be finite;
+- the worst validation/baseline loss ratio to be at most 0.50;
+- the worst validation/train loss ratio to be at most 4.0;
+- the coefficient of variation of selected validation losses to be at most
+  0.25;
+- the worst validation-dispersion retention to be at least 0.10;
+- the worst validation effective rank to be at least 4.0.
+
+Passing will establish repeatability across a small set of optimization seeds
+on one fixed development dataset. It will not establish robustness to dataset
+sampling, and it will not by itself authorize a paper-level reproduction claim.
 
 ## Training details absent from the paper
 

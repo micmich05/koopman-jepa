@@ -41,8 +41,11 @@ y el notebook ejecutado
 [`paper_train_validation_smoke.ipynb`](notebooks/paper_train_validation_smoke.ipynb)
 pasa el gate agregado: validation baja al 24.6% de su baseline y conserva rango
 efectivo 20.93. Sin embargo, la brecha individual validation/train llega a
-4.467 en la época 10. Por eso test sigue reservado: el próximo paso es fijar
-selección de checkpoint y comprobar estabilidad entre seeds.
+4.467 en la época 10. Por eso test sigue reservado. La política siguiente ya
+está congelada en
+[`paper_seed_stability_smoke.yaml`](configs/paper_seed_stability_smoke.yaml):
+selecciona la menor validation loss que todavía respeta los controles de brecha
+y no-colapso, y exige checkpoints válidos para seeds 0–4. Aún no fue ejecutada.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

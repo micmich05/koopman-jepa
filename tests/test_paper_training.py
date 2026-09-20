@@ -7,21 +7,27 @@ from torch.utils.data import TensorDataset
 from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
     PaperOverfitGateConfig,
+    PaperSeedStabilityGateConfig,
+    PaperSeedSweepConfig,
     PaperTrainConfig,
     PaperValidationGateConfig,
 )
 from koopman_jepa.paper_model import PaperModelConfig, PaperTemporalJEPA
 from koopman_jepa.paper_training import (
     PaperEpochMetrics,
+    PaperSeedSummary,
     PaperStepMetrics,
     evaluate_overfit_gate,
+    evaluate_seed_stability_gate,
     evaluate_validation_gate,
     make_paper_optimizer,
     overfit_fixed_batch,
     paper_train_step,
     paper_trainable_parameters,
     run_paper_train_validation,
+    select_validation_checkpoint,
     squared_embedding_error,
+    summarize_seed_checkpoint,
 )
 
 
@@ -237,3 +243,111 @@ def test_validation_gate_checks_improvement_gap_and_collapse() -> None:
     assert collapsed.generalization_gap_passed
     assert not collapsed.spread_passed
     assert not collapsed.rank_passed
+
+
+def test_checkpoint_selection_rejects_lower_loss_with_excessive_gap() -> None:
+    initial = PaperEpochMetrics(
+        epoch=0,
+        train_loss=0.0067,
+        validation_loss=0.0068,
+        train_embedding_std=0.009,
+        validation_embedding_std=0.009,
+        train_effective_rank=22.0,
+        validation_effective_rank=21.0,
+        online_gradient_norm=0.0,
+        predictor_gradient_norm=0.0,
+    )
+    eligible = PaperEpochMetrics(
+        epoch=9,
+        train_loss=0.0005,
+        validation_loss=0.0017,
+        train_embedding_std=0.006,
+        validation_embedding_std=0.006,
+        train_effective_rank=21.0,
+        validation_effective_rank=20.0,
+        online_gradient_norm=0.02,
+        predictor_gradient_norm=0.002,
+    )
+    excessive_gap = PaperEpochMetrics(
+        epoch=10,
+        train_loss=0.00037,
+        validation_loss=0.00165,
+        train_embedding_std=0.006,
+        validation_embedding_std=0.006,
+        train_effective_rank=22.0,
+        validation_effective_rank=21.0,
+        online_gradient_norm=0.02,
+        predictor_gradient_norm=0.002,
+    )
+
+    selection = select_validation_checkpoint(
+        [initial, eligible, excessive_gap],
+        PaperValidationGateConfig(),
+    )
+
+    assert selection is not None
+    assert selection.epoch == 9
+    assert selection.validation_loss == eligible.validation_loss
+    assert selection.validation_train_loss_ratio == 3.4
+
+
+def test_seed_stability_gate_requires_every_seed_and_low_variability() -> None:
+    sweep = PaperSeedSweepConfig()
+    gate = PaperSeedStabilityGateConfig()
+    summaries = [
+        PaperSeedSummary(
+            seed=seed,
+            checkpoint_epoch=8 + seed % 2,
+            train_loss=0.0005,
+            validation_loss=0.0016 + seed * 0.00002,
+            validation_loss_ratio=0.24 + seed * 0.005,
+            validation_train_loss_ratio=3.2 + seed * 0.1,
+            validation_embedding_std_ratio=0.65,
+            validation_effective_rank=19.0,
+        )
+        for seed in sweep.seeds
+    ]
+
+    result = evaluate_seed_stability_gate(summaries, sweep, gate)
+    missing = evaluate_seed_stability_gate(summaries[:-1], sweep, gate)
+
+    assert result.passed
+    assert result.all_checkpoints_selected
+    assert result.validation_loss_coefficient_of_variation < 0.25
+    assert not missing.passed
+    assert not missing.all_checkpoints_selected
+
+
+def test_seed_summary_preserves_constraint_eligible_selection() -> None:
+    history = [
+        PaperEpochMetrics(
+            epoch=0,
+            train_loss=1.0,
+            validation_loss=1.0,
+            train_embedding_std=0.5,
+            validation_embedding_std=0.5,
+            train_effective_rank=8.0,
+            validation_effective_rank=8.0,
+            online_gradient_norm=0.0,
+            predictor_gradient_norm=0.0,
+        ),
+        PaperEpochMetrics(
+            epoch=1,
+            train_loss=0.1,
+            validation_loss=0.2,
+            train_embedding_std=0.4,
+            validation_embedding_std=0.4,
+            train_effective_rank=6.0,
+            validation_effective_rank=6.0,
+            online_gradient_norm=1.0,
+            predictor_gradient_norm=1.0,
+        ),
+    ]
+    selection = select_validation_checkpoint(history, PaperValidationGateConfig())
+
+    assert selection is not None
+    summary = summarize_seed_checkpoint(3, selection)
+
+    assert summary.seed == 3
+    assert summary.checkpoint_epoch == 1
+    assert summary.validation_loss_ratio == 0.2
