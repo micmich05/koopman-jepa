@@ -25,9 +25,11 @@ También está implementada la arquitectura temporal publicada, con tests para
 su geometría convolucional, predictor y actualización EMA. Como el texto y el
 apéndice se contradicen en la proyección del encoder y la profundidad del MLP,
 [`paper_model.py`](src/koopman_jepa/paper_model.py) conserva cada interpretación
-como una variante con nombre. Aún no hay un resultado de entrenamiento del
-modelo completo: el próximo paso es fijar y probar el protocolo de optimización
-con un smoke test de un solo batch.
+como una variante con nombre. El paso mínimo de entrenamiento también está
+validado: el loss euclídeo, los gradientes, la actualización del optimizer y el
+EMA funcionan juntos sobre un batch. Aún no hay un resultado de entrenamiento
+del modelo completo; el próximo paso es congelar un protocolo de optimización
+local y someterlo a una prueba corta antes de lanzar corridas largas.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

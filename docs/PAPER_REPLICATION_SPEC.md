@@ -8,8 +8,9 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset audited, preprocessing conditions frozen, and
-  model variants implemented; training protocol pending
+- Implementation status: dataset audited, preprocessing conditions frozen,
+  model variants implemented, and one-batch training mechanics validated; full
+  training protocol pending
 
 Primary sources:
 
@@ -281,6 +282,18 @@ The stated training objective is squared Euclidean prediction error between the
 online prediction and the EMA target embedding. No variance, covariance,
 contrastive, whitening, or other anti-collapse term is described.
 
+The local implementation represents this objective as
+
+```text
+mean_over_batch(sum_over_latent((prediction - target_embedding)^2))
+```
+
+This is the direct minibatch reduction of the squared Euclidean norm written in
+the paper. It is not PyTorch's default element-wise `MSELoss`, which would also
+divide by the latent dimension and would therefore be smaller by a factor of
+32. That constant does not change the minimizer, but it does change gradient
+scale and its interaction with any reconstructed learning rate.
+
 ### Architectural inconsistencies in the paper
 
 Two contradictions must be resolved before implementation is called exact:
@@ -325,6 +338,26 @@ parameters are frozen with respect to gradient updates and are moved after each
 optimizer step using the published EMA decay `0.996`. Structural tests lock the
 convolutional geometry, projection shapes, predictor variants, target freezing,
 and EMA calculation before any result-producing training run.
+
+### One-batch training gate
+
+`src/koopman_jepa/paper_training.py` implements the smallest complete training
+transition:
+
+1. clear gradients;
+2. encode context with the online encoder and target with the frozen target
+   encoder;
+3. minimize only the squared embedding prediction error;
+4. update the online encoder and predictor with a caller-provided optimizer;
+5. update the target encoder from the new online parameters using EMA.
+
+A deterministic CPU smoke test confirms that the online encoder and predictor
+receive nonzero gradients and change, target parameters never receive
+gradients, and every target parameter follows the exact `0.996 / 0.004` EMA
+calculation after the optimizer step. The test uses SGD only as a diagnostic
+instrument. This does not select SGD for the paper reproduction: optimizer and
+learning rate remain unpublished experimental variables and must be frozen in
+the next protocol step.
 
 ## Training details absent from the paper
 
