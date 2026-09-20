@@ -292,9 +292,10 @@ class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]
             raise ValueError("generator returned non-finite values")
 
         if self.config.standardize:
-            mean = float(master.mean())
-            std = max(float(master.std()), 1e-6)
-            master = ((master - mean) / std).astype(np.float32, copy=False)
+            working_master = master.astype(np.float64)
+            mean = float(working_master.mean())
+            std = max(float(working_master.std()), 1e-6)
+            master = ((working_master - mean) / std).astype(np.float32)
 
         context = master[: self.config.context_length]
         target = master[

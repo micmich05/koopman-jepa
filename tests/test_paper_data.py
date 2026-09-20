@@ -101,6 +101,20 @@ def test_different_splits_use_different_rng_streams() -> None:
     assert not torch.equal(train_context, val_context)
 
 
+def test_nearly_constant_trend_is_standardized_stably() -> None:
+    config = PaperDataConfig(
+        train_per_regime=58,
+        val_per_regime=1,
+        test_per_regime=1,
+    )
+    dataset = PaperRegimeDataset(config, "train", generate_paper_master)
+    context, target, _ = dataset[6 * config.train_per_regime + 57]
+    reconstructed_master = torch.cat([context.flatten(), target.flatten()[-config.shift :]])
+
+    assert abs(float(reconstructed_master.mean())) < 1e-6
+    assert abs(float(reconstructed_master.std(unbiased=False)) - 1.0) < 1e-6
+
+
 def test_published_sine_regimes_have_expected_frequency_and_amplitude() -> None:
     length = 1024
     expected = {
