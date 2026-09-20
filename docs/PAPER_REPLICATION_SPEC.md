@@ -1075,11 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare an unexecuted notebook for the frozen encoder sensitivity. It changes
-only the main-text `direct` projection (`6144 -> 32`) to the reconciled appendix
-reading `two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh
-data, seeds, optimizer, checkpoint policy, and clustering aggregation
-unchanged. Commit the notebook before execution and do not construct test.
+Review and commit the prepared, unexecuted notebook for the frozen encoder
+sensitivity, then run it without changes. It changes only the main-text
+`direct` projection (`6144 -> 32`) to the reconciled appendix reading
+`two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh data,
+seeds, optimizer, checkpoint policy, and clustering aggregation unchanged. Do
+not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1212,4 +1213,6 @@ clustering reproduction. Test remains untouched.
 The encoder sensitivity is frozen in
 `configs/paper_mlp_two_stage_one_hidden_development.yaml`. A configuration test
 requires parsed equality with the direct one-hidden condition after replacing
-only `model.encoder_projection` with `two_stage`. It has not been executed.
+only `model.encoder_projection` with `two_stage`. The unexecuted notebook
+`notebooks/paper_mlp_two_stage_one_hidden_development.ipynb` implements the
+validation-only run and skips clustering if the predictive prerequisite fails.

@@ -158,7 +158,9 @@ reproducción exitosa.
 La siguiente sensibilidad está congelada en
 [`paper_mlp_two_stage_one_hidden_development.yaml`](configs/paper_mlp_two_stage_one_hidden_development.yaml).
 Cambia únicamente el encoder directo `6144→32` por la lectura reconciliada del
-apéndice `6144→64→32`; todavía no fue ejecutada.
+apéndice `6144→64→32`. El notebook está preparado sin outputs en
+[`paper_mlp_two_stage_one_hidden_development.ipynb`](notebooks/paper_mlp_two_stage_one_hidden_development.ipynb)
+y todavía no fue ejecutado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
