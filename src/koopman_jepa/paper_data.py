@@ -31,6 +31,13 @@ PAPER_REGIME_NAMES = (
     "sine_high_noise",
 )
 
+PAPER_PERIODIC_CYCLES = {
+    "low": 7,
+    "medium": 10,
+    "high": 15,
+}
+PAPER_PHASE_STD = np.pi
+
 Split = Literal["train", "val", "test"]
 MasterGenerator = Callable[[int, int, np.random.Generator], np.ndarray]
 
@@ -87,6 +94,52 @@ def load_paper_data_config(path: str | Path) -> PaperDataConfig:
     config = PaperDataConfig(**raw.get("data", {}))
     config.validate()
     return config
+
+
+def generate_paper_master(
+    regime_id: int,
+    length: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Generate one raw master sequence from a published paper regime.
+
+    This function is being implemented one regime family at a time. Regimes
+    that have not yet been audited fail explicitly instead of silently using a
+    placeholder signal.
+    """
+
+    if length < 1:
+        raise ValueError("length must be positive")
+    if regime_id < 0 or regime_id >= len(PAPER_REGIME_NAMES):
+        raise ValueError(f"unknown regime_id: {regime_id}")
+    if regime_id > 4:
+        name = PAPER_REGIME_NAMES[regime_id]
+        raise NotImplementedError(f"paper regime is not implemented yet: {name}")
+
+    time = np.arange(length, dtype=np.float64)
+    phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+
+    if regime_id == 0:
+        signal = np.sin(_angular_frequency("low", length) * time + phase)
+    elif regime_id == 1:
+        signal = np.sin(_angular_frequency("medium", length) * time + phase)
+    elif regime_id == 2:
+        signal = np.sin(_angular_frequency("high", length) * time + phase)
+    elif regime_id == 3:
+        signal = 0.3 * np.sin(_angular_frequency("medium", length) * time + phase)
+    else:
+        harmonic_phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+        medium_frequency = _angular_frequency("medium", length)
+        signal = 0.7 * np.sin(medium_frequency * time + phase) + 0.3 * np.sin(
+            3.0 * medium_frequency * time + harmonic_phase
+        )
+
+    return signal.astype(np.float32)
+
+
+def _angular_frequency(band: str, length: int) -> float:
+    cycles = PAPER_PERIODIC_CYCLES[band]
+    return 2.0 * np.pi * cycles / length
 
 
 class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):

@@ -7,3 +7,9 @@ data:
   test_per_regime: 2
   base_seed: 0
   standardize: true
+
+generator_assumptions:
+  phase_distribution: normal
+  phase_standard_deviation: pi
+  wrap_phase: false
+  deterministic_observation_noise_std: 0.0

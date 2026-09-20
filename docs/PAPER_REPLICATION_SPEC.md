@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: specification audit only
+- Implementation status: dataset generator in progress (5 of 18 regimes)
 
 Primary sources:
 
@@ -77,6 +77,12 @@ With `L = 1024`:
 Periodic amplitudes are 1 unless overridden. Each sinusoidal master sequence
 receives a random phase distributed as `Normal(0, pi^2)`, meaning standard
 deviation `pi` if the second argument denotes variance as written.
+
+The local implementation adopts that interpretation: it samples phase with
+standard deviation `pi` and does not explicitly wrap it. Since all published
+periodic signals depend on phase through a periodic function, wrapping would
+not change their generated values. Deterministic periodic regimes receive no
+additional observation noise.
 
 ### Published regimes
 
@@ -314,7 +320,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement only the 18-regime generator and a dataset-audit notebook. Use named
-assumptions for every unresolved item, and keep the reduced Phase 0 generator
-unchanged. Do not implement or train the paper-faithful model until the dataset
-audit is reviewed.
+Complete the remaining 13 regimes and then build the dataset-audit notebook.
+The five sinusoidal regimes are implemented and covered by frequency,
+amplitude, harmonic-content, determinism, and zero-observation-noise tests. Use
+named assumptions for every unresolved item, and keep the reduced Phase 0
+generator unchanged. Do not implement or train the paper-faithful model until
+the dataset audit is reviewed.

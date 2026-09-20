@@ -4,10 +4,12 @@ import numpy as np
 import torch
 
 from koopman_jepa.paper_data import (
+    PAPER_PERIODIC_CYCLES,
     PAPER_REGIME_NAMES,
     PaperDataConfig,
     PaperRegimeDataset,
     PaperSampleKey,
+    generate_paper_master,
     load_paper_data_config,
 )
 
@@ -92,3 +94,59 @@ def test_different_splits_use_different_rng_streams() -> None:
     val_context, _, _ = val[0]
 
     assert not torch.equal(train_context, val_context)
+
+
+def test_published_sine_regimes_have_expected_frequency_and_amplitude() -> None:
+    length = 1024
+    expected = {
+        0: (PAPER_PERIODIC_CYCLES["low"], 1.0),
+        1: (PAPER_PERIODIC_CYCLES["medium"], 1.0),
+        2: (PAPER_PERIODIC_CYCLES["high"], 1.0),
+        3: (PAPER_PERIODIC_CYCLES["medium"], 0.3),
+    }
+
+    for regime_id, (expected_bin, expected_amplitude) in expected.items():
+        signal = generate_paper_master(regime_id, length, np.random.default_rng(7))
+        spectrum = np.abs(np.fft.rfft(signal))
+        dominant_bin = int(np.argmax(spectrum[1:]) + 1)
+        recovered_amplitude = 2.0 * spectrum[dominant_bin] / length
+
+        assert dominant_bin == expected_bin
+        assert np.isclose(recovered_amplitude, expected_amplitude, atol=1e-6)
+
+
+def test_harmonic_regime_has_published_components() -> None:
+    length = 1024
+    signal = generate_paper_master(4, length, np.random.default_rng(11))
+    spectrum = 2.0 * np.abs(np.fft.rfft(signal)) / length
+    medium_bin = PAPER_PERIODIC_CYCLES["medium"]
+
+    assert np.isclose(spectrum[medium_bin], 0.7, atol=1e-6)
+    assert np.isclose(spectrum[3 * medium_bin], 0.3, atol=1e-6)
+
+    spectrum[[0, medium_bin, 3 * medium_bin]] = 0.0
+    assert float(spectrum.max()) < 1e-6
+
+
+def test_sinusoidal_generation_is_seeded_and_noise_free() -> None:
+    first = generate_paper_master(1, 1024, np.random.default_rng(23))
+    repeated = generate_paper_master(1, 1024, np.random.default_rng(23))
+    changed_phase = generate_paper_master(1, 1024, np.random.default_rng(24))
+
+    assert np.array_equal(first, repeated)
+    assert not np.array_equal(first, changed_phase)
+
+    time = np.arange(1024)
+    basis = np.column_stack(
+        [
+            np.sin(2.0 * np.pi * PAPER_PERIODIC_CYCLES["medium"] * time / 1024),
+            np.cos(2.0 * np.pi * PAPER_PERIODIC_CYCLES["medium"] * time / 1024),
+        ]
+    )
+    fitted = basis @ np.linalg.lstsq(basis, first, rcond=None)[0]
+    assert np.max(np.abs(first - fitted)) < 1e-6
+
+
+def test_unimplemented_regimes_fail_explicitly() -> None:
+    with np.testing.assert_raises_regex(NotImplementedError, "trend_up"):
+        generate_paper_master(5, 1024, np.random.default_rng(0))
