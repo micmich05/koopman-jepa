@@ -183,7 +183,10 @@ El próximo piloto está congelado en
 [`paper_mlp_medium_scale_development.yaml`](configs/paper_mlp_medium_scale_development.yaml):
 usa la mejor configuración base y escala de 64/32 a 256/64 secuencias
 train/validation por régimen. Es un diagnóstico intermedio de escala, todavía
-lejos de los miles de ejemplos por régimen del paper, y no fue ejecutado.
+lejos de los miles de ejemplos por régimen del paper. Su notebook está
+preparado sin outputs en
+[`paper_mlp_medium_scale_development.ipynb`](notebooks/paper_mlp_medium_scale_development.ipynb)
+y todavía no fue ejecutado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

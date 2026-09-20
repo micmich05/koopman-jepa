@@ -1075,12 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare a validation-only notebook for the frozen medium-scale data pilot. It
-uses the best local base condition (direct encoder, one-hidden predictor,
-learning rate `3e-4`) and increases train/validation masters per regime from
-64/32 to 256/64. Keep model seeds, 20 epochs, EMA, checkpoint policy, and
-clustering aggregation fixed. This is a scaling diagnostic, not the paper-scale
-test. Commit the notebook before execution and do not construct test.
+Review and commit the prepared validation-only notebook for the frozen
+medium-scale data pilot, then run it unchanged. It uses the best local base
+condition (direct encoder, one-hidden predictor, learning rate `3e-4`) and
+increases train/validation masters per regime from 64/32 to 256/64. Keep model
+seeds, 20 epochs, EMA, checkpoint policy, and clustering aggregation fixed.
+This is a scaling diagnostic, not the paper-scale test. Do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1259,3 +1259,8 @@ equality with the direct one-hidden baseline after replacing only
 necessarily shift because split offsets follow the enlarged train range, so
 the result will be interpreted as a scaling trend rather than a paired
 sample-for-sample comparison. It has not been executed.
+
+The unexecuted notebook `notebooks/paper_mlp_medium_scale_development.ipynb`
+implements the 4,608-sample train and 1,152-sample validation run. It reports
+formal predictive readiness and five-seed clustering in one execution, with a
+source test preventing test construction.
