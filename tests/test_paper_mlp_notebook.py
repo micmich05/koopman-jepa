@@ -23,6 +23,9 @@ def test_mlp_development_notebook_is_validation_only() -> None:
     assert 'PaperRegimeDataset(config.data, "test"' not in source
     assert "evaluate_paper_mlp_clustering_gate" in source
     assert "evaluate_scale_invariant_seed_stability_gate" in source
+    assert "predictive_prerequisites_passed" in source
+    assert "Clustering OMITIDO" in source
+    assert "assert replay_passed" not in source
 
 
 def test_mlp_development_notebook_starts_without_outputs() -> None:
