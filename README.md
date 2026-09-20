@@ -199,6 +199,15 @@ validation pasa de `0.015×` a `1014×` el baseline. El próximo experimento ser
 una estabilización local predeclarada con clipping global de norma `1.0`; no se
 presentará como receta literal del paper y seguirá sin consultar test.
 
+Ese probe ya fue ejecutado en
+[`paper_mlp_gradient_clip_probe.ipynb`](notebooks/paper_mlp_gradient_clip_probe.ipynb)
+y dio `FAIL`. El clip se activó, pero el error final llegó a `1843×` el
+baseline, peor que `1014×` sin clipping. El checkpoint temprano conserva rango
+`7.88` y pureza `51.00%`, prácticamente idéntica al `51.07%` previo. No se
+expandirá a cinco seeds. El próximo probe reducirá el learning rate después del
+mínimo temprano; seguirá siendo una estabilización local, no una receta
+atribuida al paper.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

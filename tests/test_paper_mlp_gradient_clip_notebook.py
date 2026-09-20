@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 
-def test_gradient_clip_probe_notebook_is_prepared_validation_only() -> None:
+def test_gradient_clip_probe_notebook_is_executed_validation_only() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -25,5 +25,12 @@ def test_gradient_clip_probe_notebook_is_prepared_validation_only() -> None:
     assert 'PaperRegimeDataset(config.data, "val"' in source
     assert 'PaperRegimeDataset(config.data, "test"' not in source
     assert "evaluate_paper_mlp_seed_clustering" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
+    rendered = json.dumps(notebook)
+    assert "Resultado del probe: **FAIL**" in rendered
+    assert "Ratio final: **1843.0214**" in rendered

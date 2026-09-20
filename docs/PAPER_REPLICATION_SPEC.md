@@ -1109,12 +1109,25 @@ loss `2.334x`; at epoch 20 they reached `1655.663/3774.823` with loss
 `1014.353x`. This is direct gradient explosion, not merely a late increase in
 validation error.
 
-The next sensitivity will add global gradient-norm clipping at `1.0` while
-holding the direct one-hidden condition fixed. This threshold is predeclared,
-standard, and does not affect the early epoch-2 gradients; it targets the later
-runaway dynamics. Because clipping is absent from the paper, the condition is
-an explicit local stabilization experiment rather than a literal reproduction.
-It must be evaluated on train/validation only; do not construct test.
+The first stabilization sensitivity added global gradient-norm clipping at
+`1.0` while holding the direct one-hidden, medium-scale seed-10 condition fixed.
+This threshold was predeclared and did not affect the early epoch-2 gradients;
+it targeted the later runaway dynamics. Because clipping is absent from the
+paper, this was an explicit local stabilization experiment rather than a
+literal reproduction. It was evaluated on train/validation only.
+
+The clipping probe produced `FAIL`. Clipping activated, but the epoch-20
+validation-loss ratio reached `1843.0214`, worse than `1014.3532` without
+clipping, and the maximum mean pre-clipping gradient norm reached `4655.94`.
+The selected epoch-2 checkpoint retained effective rank `7.88`; mean validation
+purity was `50.998% ± 0.517%`, effectively unchanged from the unclipped
+seed-10 result of `51.07%`. Clipping therefore neither stabilizes the late
+dynamics nor improves clustering, so it must not be expanded to five seeds.
+
+The next bounded stabilization probe should reduce the learning rate after the
+shared early minimum rather than rescale gradients. Any schedule must be frozen
+before execution, tested first on the same medium-scale seed 10, and identified
+as a local intervention absent from the paper. Test must remain unconstructed.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1312,3 +1325,18 @@ minima at epochs 5–7 with 18 batches per epoch correspond to roughly 90–126
 updates. Later medium-scale validation loss explodes by hundreds of times its
 initial value. This step-aligned instability suggests a missing optimization
 detail rather than a simple data shortage. Test remains untouched.
+
+The follow-up clipping protocol is frozen in
+`configs/paper_mlp_gradient_clip_probe.yaml` and executed in
+`notebooks/paper_mlp_gradient_clip_probe.ipynb`. It changes only the global
+gradient-norm cap to `1.0` and restricts the probe to medium-scale seed 10. Its
+predeclared expansion criteria required final and late validation-loss ratios
+at most `0.5`, effective rank at least `4`, validation purity at least `49%`,
+and evidence that clipping activated.
+
+The probe failed because clipping did not stop the runaway trajectory. Final
+loss was `1843.0214x` the untrained baseline and exceeded the unclipped
+`1014.3532x`; clipping activated and the maximum mean pre-clipping norm was
+`4655.94`. The epoch-2 checkpoint still had rank `7.88` and purity
+`50.998% ± 0.517%`, essentially the same as without clipping. The result does
+not justify a five-seed clipping sweep. Test was not constructed or consulted.
