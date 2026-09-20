@@ -28,7 +28,7 @@ def test_two_stage_notebook_is_executed_validation_only() -> None:
     )
 
 
-def test_two_stage_clustering_diagnostic_is_unexecuted_validation_only() -> None:
+def test_two_stage_clustering_diagnostic_is_executed_validation_only() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -47,5 +47,9 @@ def test_two_stage_clustering_diagnostic_is_unexecuted_validation_only() -> None
     assert 'PaperRegimeDataset(config.data, "val"' in source
     assert 'PaperRegimeDataset(config.data, "test"' not in source
     assert "min_validation_effective_rank=1.0" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )

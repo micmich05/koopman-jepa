@@ -1075,11 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the prepared validation-only post-hoc clustering diagnostic
-for the failed two-stage encoder sensitivity, then run it without changes. It
-selects the minimum-loss checkpoint for all five seeds without using effective
-rank as a selection filter, retains all frozen K-means settings, and reports the
-formal rank status. This cannot change the formal FAIL or authorize test.
+Freeze a one-factor optimization sensitivity using the best architecture seen
+so far: direct encoder plus one-hidden predictor. Change only AdamW learning
+rate from `3e-4` to `1e-4`; keep data, seeds, 20 epochs, EMA, checkpoint policy,
+and clustering aggregation fixed. Commit the protocol before execution and do
+not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1223,7 +1223,15 @@ effective rank `4.53`. The minimum-loss epochs for seeds 11–14 had ranks `1.22
 low-dimensional concentration relative to the direct one-hidden condition.
 Clustering and test were not run.
 
-The unexecuted notebook
+The executed notebook
 `notebooks/paper_mlp_two_stage_clustering_diagnostic.ipynb` implements the
 descriptive five-seed clustering run. A source test verifies the explicit
 selection-only rank floor and prevents construction of test.
+
+The descriptive two-stage result is worse than the direct encoder. Overall
+purity is `47.90%`, compared with `50.76%` for direct plus one-hidden and
+`65.48%` in the paper. Per-seed means range from `45.23%` to `51.22%`; seed-mean
+CV is `0.040` and worst K-means standard deviation is `1.38%`. All minimum-loss
+checkpoints have effective rank below 4 (`1.22–3.36`). The reconciled appendix
+encoder is therefore not a plausible explanation for the missing clustering
+quality under the current optimization. Test remains untouched.

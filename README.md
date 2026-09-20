@@ -163,8 +163,12 @@ apéndice `6144→64→32`. El notebook
 y ya fue ejecutado. Dio `FAIL` antes de clustering: sólo seed 10 alcanzó el
 rango mínimo (checkpoint en época 4, rango `4.53`); las otras cuatro quedaron
 en `1.22–2.91`. El encoder adicional empeoró la concentración dimensional. El
-diagnóstico de pureza para las cinco seeds está preparado, todavía sin ejecutar,
-en [`paper_mlp_two_stage_clustering_diagnostic.ipynb`](notebooks/paper_mlp_two_stage_clustering_diagnostic.ipynb).
+diagnóstico de pureza para las cinco seeds está ejecutado en
+[`paper_mlp_two_stage_clustering_diagnostic.ipynb`](notebooks/paper_mlp_two_stage_clustering_diagnostic.ipynb).
+Obtiene sólo `47.90%` de pureza global, `2.86` puntos
+menos que el encoder directo; el rango de las medias por seed es
+`45.23–51.22%`. La lectura de dos etapas queda descartada como explicación de
+la brecha con el paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
