@@ -4,9 +4,22 @@ Experimentos controlados para estudiar si una arquitectura JEPA temporal puede a
 subespacios finitos invariantes bajo Koopman y sus dinámicas espectrales.
 
 El protocolo científico está documentado en
-[RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación actual cubre la **Fase 0**:
+[RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman
-(`lambda = 1`) presentado por Ruiz-Morales et al. en AAAI 2026.
+(`lambda = 1`), y una reconstrucción auditable de los 18 regímenes sintéticos
+presentados por Ruiz-Morales et al. en AAAI 2026.
+
+## Auditoría del dataset del paper
+
+El notebook ejecutado
+[`paper_dataset_audit.ipynb`](notebooks/paper_dataset_audit.ipynb) revisa la
+geometría, espectros, autocorrelaciones, tendencias, pulsos y sensibilidades de
+los 18 regímenes. La mecánica del generador pasa, pero el entrenamiento está
+pausado por un hallazgo de identificabilidad: la estandarización por secuencia
+convierte `Sine_MedFreq` y `Sine_LowAmp` en la misma distribución observable.
+
+La especificación, los parámetros publicados y cada supuesto local están en
+[`PAPER_REPLICATION_SPEC.md`](docs/PAPER_REPLICATION_SPEC.md).
 
 ## Qué comprueba la Fase 0
 

@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: all 18 dataset regimes implemented; audit pending
+- Implementation status: all 18 regimes implemented and audited; training blocked pending review
 
 Primary sources:
 
@@ -199,6 +199,30 @@ This gives a pre-standardization RMS signal-to-noise ratio of
 standardization preserves that ratio. Both the noise family and the exact
 factor require sensitivity checks because “approximately 3x” is not a complete
 executable specification.
+
+## Executed dataset-audit findings
+
+The executed notebook `notebooks/paper_dataset_audit.ipynb` records the figures,
+metrics, and written interpretation. Its principal findings are:
+
+- the mechanical gate passes after using float64 accumulation for numerically
+  stable per-sequence standardization;
+- `Sine_MedFreq` and `Sine_LowAmp` become the same observable distribution
+  after per-sequence standardization, because their only difference is a
+  positive multiplicative factor;
+- literal slope randomization reverses 6.80% of sampled `Trend_Up` sequences
+  and 6.00% of sampled `Trend_Down` sequences in the deterministic audit;
+- the local pulse-overlap policy produces fewer than five visible connected
+  events in 33.50% of sampled sequences;
+- for standardized AR(0.9), the mean early/late variance ratio is 0.899 with
+  zero burn-in and 1.046 with a 256-step burn-in;
+- using sample indices rather than normalized time reduces the bin-10 spectral
+  power fraction of `Sine_Trend` from 0.731 to 0.006278.
+
+The first item passes software/data mechanics. The second is a critical
+identifiability failure for the claim that all 18 labels correspond to distinct
+observable regimes under the published preprocessing. It is a property of the
+published specification, not an implementation defect.
 
 ## Confirmed model specification
 
@@ -391,9 +415,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Build and execute the dataset-audit notebook over all 18 implemented regimes.
-It must combine quantitative checks with written interpretation of every
-figure, explicitly distinguish published parameters from local assumptions,
-and evaluate the required sensitivity variants. Keep the reduced Phase 0
-generator unchanged. Do not implement or train the paper-faithful model until
-the dataset audit is reviewed.
+Review the identifiability failure before training. The paper-faithful baseline
+can preserve the published preprocessing and report 18 labels but only 17
+observable distributions; a named sensitivity may omit per-sequence
+standardization to preserve amplitude. This choice must not be made silently.
+Keep the reduced Phase 0 generator unchanged and do not implement or train the
+paper-faithful model until the dataset audit is accepted.
