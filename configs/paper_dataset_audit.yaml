@@ -1,0 +1,9 @@
+data:
+  master_length: 1024
+  context_length: 768
+  shift: 256
+  train_per_regime: 8
+  val_per_regime: 2
+  test_per_regime: 2
+  base_seed: 0
+  standardize: true
