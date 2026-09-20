@@ -94,19 +94,23 @@ estos epochs para una comparación posterior sobre el test smoke ya consumido;
 no constituye todavía evidencia held-out del control ni una reproducción a
 escala completa.
 
-El protocolo siguiente está congelado, pero todavía no ejecutado, en
+El protocolo held-out pareado fue congelado y ejecutado en
 [`paper_linear_random_heldout_smoke.yaml`](configs/paper_linear_random_heldout_smoke.yaml).
 Obliga a reproducir los diez checkpoints antes de reconstruir test y compara
 las dos condiciones mediante error predictivo normalizado, pureza K-means y
 rango efectivo. Los thresholds se fijaron antes de observar el test random. La
 partición ya fue consumida por la evaluación identidad, por lo que este control
-será predeclarado pero no una segunda prueba ciega independiente.
-Las métricas y el gate agregado ya están implementados y cubiertos por tests
-sintéticos. El notebook held-out pareado está preparado, revisado y todavía
-sin ejecutar en
+es predeclarado pero no una segunda prueba ciega independiente. El notebook
+ejecutado está en
 [`paper_linear_random_heldout_smoke.ipynb`](notebooks/paper_linear_random_heldout_smoke.ipynb).
-Su única celda que construye test está protegida por el replay de los diez
-checkpoints y el pareo exacto de las inicializaciones de encoder.
+Los diez replays y el pareo inicial pasaron, pero el gate global dio `FAIL`:
+seed 7 obtuvo pureza random `47.92%` frente al mínimo absoluto `50%` (69 de 144
+asignaciones, tres menos que el corte). Todos los demás criterios pasaron: peor
+ratio de error predictivo 1.470, mínima retención de pureza 0.974, rango random
+mínimo 12.25 y mínima retención de rango 0.682. La pureza random media fue
+50.28%, ligeramente mayor que el 49.44% de identidad, pero el threshold
+predeclarado exige que todas las seeds pasen y no se modifica después de ver
+test. La partición queda consumida también para random.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

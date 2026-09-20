@@ -844,7 +844,7 @@ in development with a dense non-identity operator. This supports the paper's
 qualitative basis-selection mechanism, but still supplies no held-out evidence
 for the random control and no full-scale numerical reproduction.
 
-### Frozen paired held-out random control (not yet executed)
+### Executed paired held-out random control
 
 `configs/paper_linear_random_heldout_smoke.yaml` freezes the next protocol
 before any random-control test embedding is computed. It retains the same
@@ -897,8 +897,8 @@ The metric implementation is complete in
 recovery, perfectly separated clusters, invalid labels and shapes, each gate
 family, missing seeds, and non-finite metrics.
 
-The unexecuted notebook
-`notebooks/paper_linear_random_heldout_smoke.ipynb` now implements the frozen
+The executed notebook
+`notebooks/paper_linear_random_heldout_smoke.ipynb` implements the frozen
 flow. It constructs only train and validation, recreates the five identity and
 five Xavier checkpoints, verifies paired initial encoder tensors and distinct
 predictor initializations, and sets a single authorization flag. Exactly one
@@ -906,8 +906,40 @@ later code cell can instantiate `PaperRegimeDataset(..., "test", ...)`, and it
 asserts that flag first. The notebook then evaluates both conditions on the
 same ordered test loader, reports every seed, plots all absolute and relative
 gates, and generates a parameterized written interpretation. A source-level
-test protects the test-construction cell and its ordering. The notebook has no
-execution counts or outputs; no random held-out evaluation has been run.
+test protects the test-construction cell and its ordering.
+
+All ten checkpoint replays and all five initialization-pairing checks pass
+before the 144 test pairs are constructed. Train, validation, and test sample
+keys are disjoint. The test is now consumed for both linear conditions.
+
+| Seed | Prediction I | Prediction R | R/I | Purity I | Purity R | R/I | Rank I | Rank R | R/I |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 5 | 0.201 | 0.296 | 1.470 | 45.83% | 50.69% | 1.106 | 21.22 | 18.85 | 0.888 |
+| 6 | 0.244 | 0.285 | 1.169 | 49.31% | 50.00% | 1.014 | 20.13 | 14.32 | 0.711 |
+| 7 | 0.234 | 0.207 | 0.886 | 46.53% | 47.92% | 1.030 | 21.32 | 17.99 | 0.844 |
+| 8 | 0.244 | 0.281 | 1.151 | 52.78% | 51.39% | 0.974 | 17.96 | 12.25 | 0.682 |
+| 9 | 0.225 | 0.326 | 1.445 | 52.78% | 51.39% | 0.974 | 18.64 | 14.67 | 0.787 |
+
+The preregistered aggregate gate is **FAIL**. Seed 7 random purity is `47.92%`
+or 69 of 144 assignments, three assignments below the `50%` threshold. This is
+the only failed criterion and the only failed seed. The threshold is not
+changed after observing test.
+
+The failure is narrow but cannot be relabeled as PASS. All predictive ratios
+pass, with a worst value of `1.470` against `2.0`. Every relative-purity ratio
+passes, with a minimum of `0.974` against `0.90`; random mean purity is `50.28%`
+versus `49.44%` for identity. All rank gates pass, with minimum random rank
+`12.25` and minimum retention `0.682`. Thus the observed random condition does
+not degrade clustering relative to identity and remains non-collapsed, but it
+does not satisfy the separately frozen requirement that every random seed
+exceed `50%` absolute purity. Notably, three identity seeds are also below that
+absolute level, which makes the smoke threshold stringent relative to this
+small sample without invalidating its predeclared decision rule.
+
+The result is consistent with the qualitative basis-selection mechanism:
+dense non-identity matrices retain paired predictive error, relative
+clustering, and effective rank. It is not a successful formal smoke gate, and
+it is not a paper-scale reproduction.
 
 ## Training details absent from the paper
 
@@ -1043,8 +1075,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the unexecuted paired held-out notebook. Only after that
-commit, execute it without changing code or configuration. Whether PASS or
-FAIL, audit its tables and plots, add a fixed post-run interpretation, and
-commit the consumed-test result without changing any threshold. Keep the
-reduced Phase 0 pipeline unchanged.
+Record the paired smoke result as FAIL without retuning its threshold or
+reusing its consumed test for another decision. Before further training,
+preregister the next independent condition: either a substantially larger
+fresh-seed linear confirmatory run with uncertainty intervals, or the first
+paper-scale MLP clustering reproduction. Keep the reduced Phase 0 pipeline and
+its failed result unchanged.
