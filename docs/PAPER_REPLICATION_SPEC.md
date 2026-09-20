@@ -1073,14 +1073,48 @@ from one shared checkpoint.
 
 No author contact should be made without explicit user approval.
 
+## Official-source re-audit (2026-09-20)
+
+The current official sources were checked again before defining another
+optimization sensitivity:
+
+- the AAAI publication page and proceedings PDF:
+  <https://ojs.aaai.org/index.php/AAAI/article/view/39708>;
+- arXiv v2, last revised on 2026-01-23, including its HTML appendices and TeX
+  source entry: <https://arxiv.org/abs/2511.09783>.
+
+Neither official landing page links an implementation, dataset artifact,
+training configuration, or checkpoint. The v2 experimental section and
+appendices still specify the dataset geometry, EMA decay, convolutional blocks,
+latent-width prose, and predictor tables, but not the optimizer, learning rate,
+batch size, number of epochs or updates, learning-rate schedule, gradient
+clipping, checkpoint rule, model seeds, or embedding normalization. Therefore,
+the local AdamW recipe cannot be described as the paper's recipe.
+
+The appendix ambiguity is also unchanged: it states `k = 32`, while the encoder
+table ends with a linear output of `2k`; its MLP table and prose disagree about
+whether there are one or two hidden layers. Both locally coherent encoder
+readings already have executed validation results below: the reconciled
+`6144 -> 64 -> 32` reading performs worse than the direct `6144 -> 32` reading.
+No further width reinterpretation is justified before new primary evidence.
+
 ## Next implementation step
 
-Before defining another optimization sensitivity, re-check primary sources and
-official repositories for a released training recipe or code specifying the
-step budget, learning-rate schedule, gradient clipping, and embedding
-normalization. The medium-scale curves show severe step-dependent divergence,
-so further scaling with the current recipe is not justified. Do not construct
-test.
+The primary-source re-audit found no released optimization recipe. A repeated
+medium-scale seed-10 diagnostic, using the same validation-only condition,
+measured gradient norms alongside the already observed divergence. At epoch 2,
+online/predictor gradient norms were `0.037/0.076` and validation loss was
+`0.015x` its untrained baseline. At epoch 10 they were `11.929/16.234` with
+loss `2.334x`; at epoch 20 they reached `1655.663/3774.823` with loss
+`1014.353x`. This is direct gradient explosion, not merely a late increase in
+validation error.
+
+The next sensitivity will add global gradient-norm clipping at `1.0` while
+holding the direct one-hidden condition fixed. This threshold is predeclared,
+standard, and does not affect the early epoch-2 gradients; it targets the later
+runaway dynamics. Because clipping is absent from the paper, the condition is
+an explicit local stabilization experiment rather than a literal reproduction.
+It must be evaluated on train/validation only; do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1258,7 +1292,7 @@ equality with the direct one-hidden baseline after replacing only
 `train_per_regime` and `val_per_regime` with 256 and 64. Validation sequence IDs
 necessarily shift because split offsets follow the enlarged train range, so
 the result will be interpreted as a scaling trend rather than a paired
-sample-for-sample comparison. It has not been executed.
+sample-for-sample comparison.
 
 The executed notebook `notebooks/paper_mlp_medium_scale_development.ipynb`
 implements the 4,608-sample train and 1,152-sample validation run. It reports

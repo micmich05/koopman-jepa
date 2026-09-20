@@ -190,6 +190,15 @@ frente al `50.76%` pequeño. Los checkpoints óptimos ocurren tras un número de
 updates similar, pero el error explota después; esto apunta a una receta de
 optimización incompleta más que a falta de datos.
 
+Una nueva auditoría de las fuentes oficiales (AAAI y arXiv v2, 2026-09-20) no
+encontró un enlace a código ni detalles sobre optimizer, schedule, clipping o
+presupuesto de updates. Un diagnóstico repetido de seed 10 en escala media
+confirmó explosión de gradientes: las normas online/predictor pasan de
+`0.037/0.076` en época 2 a `1655.7/3774.8` en época 20, mientras el error de
+validation pasa de `0.015×` a `1014×` el baseline. El próximo experimento será
+una estabilización local predeclarada con clipping global de norma `1.0`; no se
+presentará como receta literal del paper y seguirá sin consultar test.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por
