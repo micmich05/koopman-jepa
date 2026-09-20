@@ -892,6 +892,12 @@ identity side of this test split has already been inspected, so the experiment
 can evaluate the predeclared random-control hypothesis but cannot restore an
 independently blind test claim.
 
+The metric implementation is complete in
+`src/koopman_jepa/paper_evaluation.py`. Synthetic tests cover exact predictor
+recovery, perfectly separated clusters, invalid labels and shapes, each gate
+family, missing seeds, and non-finite metrics. No paired held-out notebook or
+random test evaluation has been created or run.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -1026,7 +1032,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test the scale-normalized prediction, clustering, rank, and
-aggregate gate metrics frozen in `paper_linear_random_heldout_smoke.yaml`.
-Do not construct test or prepare the executable notebook until those metric
-definitions pass synthetic tests. Keep the reduced Phase 0 pipeline unchanged.
+Prepare the paired held-out notebook without outputs. It must reproduce all ten
+frozen checkpoints before enabling a later test-construction cell, evaluate the
+two conditions on the exact same test loader, report every per-seed and
+aggregate metric, and generate written plot interpretation. Review and commit
+that notebook before executing it. Keep the reduced Phase 0 pipeline unchanged.

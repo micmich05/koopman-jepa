@@ -101,6 +101,8 @@ las dos condiciones mediante error predictivo normalizado, pureza K-means y
 rango efectivo. Los thresholds se fijaron antes de observar el test random. La
 partición ya fue consumida por la evaluación identidad, por lo que este control
 será predeclarado pero no una segunda prueba ciega independiente.
+Las métricas y el gate agregado ya están implementados y cubiertos por tests
+sintéticos; todavía no existe ni se ejecutó el notebook held-out pareado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
