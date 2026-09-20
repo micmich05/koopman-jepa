@@ -23,6 +23,7 @@ from koopman_jepa.paper_training import (
     evaluate_scale_invariant_seed_stability_gate,
     evaluate_seed_stability_gate,
     evaluate_validation_gate,
+    make_paper_lr_scheduler,
     make_paper_optimizer,
     overfit_fixed_batch,
     paper_train_step,
@@ -175,6 +176,28 @@ def test_fixed_batch_runner_uses_frozen_optimizer_and_step_count() -> None:
     assert optimized_ids == {id(parameter) for parameter in paper_trainable_parameters(model)}
     assert len(history) == 2
     assert all(math.isfinite(row.loss) for row in history)
+
+
+def test_step_learning_rate_scheduler_decays_after_frozen_epoch() -> None:
+    model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
+    config = PaperTrainConfig(
+        epochs=4,
+        learning_rate=3e-4,
+        learning_rate_schedule="step",
+        learning_rate_decay_epoch=2,
+        learning_rate_decay_factor=0.1,
+    )
+    optimizer = make_paper_optimizer(model, config)
+    scheduler = make_paper_lr_scheduler(optimizer, config)
+    assert scheduler is not None
+
+    assert optimizer.param_groups[0]["lr"] == 3e-4
+    optimizer.step()
+    scheduler.step()
+    assert optimizer.param_groups[0]["lr"] == 3e-4
+    optimizer.step()
+    scheduler.step()
+    assert math.isclose(optimizer.param_groups[0]["lr"], 3e-5)
 
 
 def test_overfit_gate_requires_loss_reduction_without_collapse() -> None:

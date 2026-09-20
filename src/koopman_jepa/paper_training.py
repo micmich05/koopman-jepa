@@ -209,6 +209,27 @@ def make_paper_optimizer(
     raise ValueError(f"unknown paper optimizer: {config.optimizer}")
 
 
+def make_paper_lr_scheduler(
+    optimizer: torch.optim.Optimizer,
+    config: PaperTrainConfig,
+) -> torch.optim.lr_scheduler.LRScheduler | None:
+    """Build an explicitly configured local schedule, if requested."""
+
+    config.validate()
+    if config.learning_rate_schedule == "constant":
+        return None
+    if config.learning_rate_schedule == "step":
+        assert config.learning_rate_decay_epoch is not None
+        return torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=[config.learning_rate_decay_epoch],
+            gamma=config.learning_rate_decay_factor,
+        )
+    raise ValueError(
+        f"unknown learning-rate schedule: {config.learning_rate_schedule}"
+    )
+
+
 def _gradient_norm(parameters: tuple[nn.Parameter, ...]) -> float:
     squared_norm = sum(
         float(parameter.grad.detach().square().sum())
@@ -443,6 +464,7 @@ def _run_paper_train_validation(
     device = torch.device(config.device)
     model.to(device)
     optimizer = make_paper_optimizer(model, config)
+    scheduler = make_paper_lr_scheduler(optimizer, config)
     train_loader = make_paper_loader(train_dataset, config, shuffle=True)
     train_evaluation_loader = make_paper_loader(train_dataset, config, shuffle=False)
     validation_loader = make_paper_loader(validation_dataset, config, shuffle=False)
@@ -478,6 +500,9 @@ def _run_paper_train_validation(
             gradient_sample_count += batch_size
             online_gradient_total += step.online_gradient_norm * batch_size
             predictor_gradient_total += step.predictor_gradient_norm * batch_size
+
+        if scheduler is not None:
+            scheduler.step()
 
         train_evaluation = evaluate_paper_model(model, train_evaluation_loader, device)
         validation_evaluation = evaluate_paper_model(model, validation_loader, device)

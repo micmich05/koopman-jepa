@@ -10,6 +10,7 @@ from .paper_data import PaperDataConfig
 from .paper_model import PaperModelConfig
 
 PaperOptimizer = Literal["adamw"]
+PaperLearningRateSchedule = Literal["constant", "step"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +69,9 @@ class PaperTrainConfig:
     device: str = "cpu"
     num_workers: int = 0
     max_gradient_norm: float | None = None
+    learning_rate_schedule: PaperLearningRateSchedule = "constant"
+    learning_rate_decay_epoch: int | None = None
+    learning_rate_decay_factor: float = 0.1
 
     def validate(self) -> None:
         if self.optimizer != "adamw":
@@ -88,6 +92,21 @@ class PaperTrainConfig:
             raise ValueError("num_workers must be non-negative")
         if self.max_gradient_norm is not None and self.max_gradient_norm <= 0.0:
             raise ValueError("max_gradient_norm must be positive when provided")
+        if self.learning_rate_schedule not in {"constant", "step"}:
+            raise ValueError(
+                f"unknown learning-rate schedule: {self.learning_rate_schedule}"
+            )
+        if not 0.0 < self.learning_rate_decay_factor < 1.0:
+            raise ValueError("learning_rate_decay_factor must be between zero and one")
+        if self.learning_rate_schedule == "constant":
+            if self.learning_rate_decay_epoch is not None:
+                raise ValueError(
+                    "constant learning-rate schedule cannot set a decay epoch"
+                )
+        elif self.learning_rate_decay_epoch is None:
+            raise ValueError("step learning-rate schedule requires a decay epoch")
+        elif not 1 <= self.learning_rate_decay_epoch < self.epochs:
+            raise ValueError("learning_rate_decay_epoch must be within training")
 
 
 @dataclass(frozen=True, slots=True)

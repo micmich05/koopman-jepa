@@ -52,6 +52,23 @@ def test_train_config_rejects_non_positive_gradient_clip() -> None:
         invalid.validate()
 
 
+def test_train_config_requires_valid_step_schedule() -> None:
+    missing_epoch = PaperTrainConfig(learning_rate_schedule="step")
+    out_of_range = PaperTrainConfig(
+        epochs=2,
+        learning_rate_schedule="step",
+        learning_rate_decay_epoch=2,
+    )
+    constant_with_epoch = PaperTrainConfig(learning_rate_decay_epoch=2)
+
+    with np.testing.assert_raises_regex(ValueError, "requires a decay epoch"):
+        missing_epoch.validate()
+    with np.testing.assert_raises_regex(ValueError, "within training"):
+        out_of_range.validate()
+    with np.testing.assert_raises_regex(ValueError, "cannot set a decay epoch"):
+        constant_with_epoch.validate()
+
+
 def test_train_validation_smoke_config_is_separated_and_explicit() -> None:
     path = Path(__file__).parents[1] / "configs" / "paper_train_validation_smoke.yaml"
 
@@ -377,6 +394,30 @@ def test_mlp_gradient_clip_probe_changes_only_clip_and_seed_sweep() -> None:
     assert probe.data == baseline.data
     assert probe.model == baseline.model
     assert probe.train == replace(baseline.train, max_gradient_norm=1.0)
+    assert probe.checkpoint_gate == baseline.checkpoint_gate
+    assert probe.sweep.seeds == (10,)
+    assert probe.stability_gate == baseline.stability_gate
+    assert probe.clustering == baseline.clustering
+    assert probe.clustering_gate == baseline.clustering_gate
+
+
+def test_mlp_step_decay_probe_changes_only_schedule_and_seed_sweep() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    baseline = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_medium_scale_development.yaml"
+    )
+    probe = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_step_decay_probe.yaml"
+    )
+
+    assert probe.data == baseline.data
+    assert probe.model == baseline.model
+    assert probe.train == replace(
+        baseline.train,
+        learning_rate_schedule="step",
+        learning_rate_decay_epoch=2,
+        learning_rate_decay_factor=0.1,
+    )
     assert probe.checkpoint_gate == baseline.checkpoint_gate
     assert probe.sweep.seeds == (10,)
     assert probe.stability_gate == baseline.stability_gate

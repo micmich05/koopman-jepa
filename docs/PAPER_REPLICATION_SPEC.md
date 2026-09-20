@@ -1124,10 +1124,14 @@ purity was `50.998% ± 0.517%`, effectively unchanged from the unclipped
 seed-10 result of `51.07%`. Clipping therefore neither stabilizes the late
 dynamics nor improves clustering, so it must not be expanded to five seeds.
 
-The next bounded stabilization probe should reduce the learning rate after the
-shared early minimum rather than rescale gradients. Any schedule must be frozen
-before execution, tested first on the same medium-scale seed 10, and identified
-as a local intervention absent from the paper. Test must remain unconstructed.
+The next bounded stabilization probe is frozen in
+`configs/paper_mlp_step_decay_probe.yaml`. It uses `3e-4` for epochs 1–2 and a
+single `0.1` decay to `3e-5` for epochs 3–20, tested first on the same
+medium-scale seed 10. It changes no model, data, batch, EMA, checkpoint, or
+clustering setting. The expansion criteria remain final and maximum epoch-10–20
+validation-loss ratios at most `0.5`, checkpoint effective rank at least `4`,
+and mean validation purity at least `49%`. This schedule is a local intervention
+absent from the paper. Test must remain unconstructed.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
