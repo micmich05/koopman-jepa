@@ -6,9 +6,17 @@ from statistics import fmean
 
 import torch
 from torch import nn
+from torch.utils.data import DataLoader, Dataset
 
-from .paper_config import PaperOptimizationConfig, PaperOverfitGateConfig
+from .paper_config import (
+    PaperOptimizationConfig,
+    PaperOverfitGateConfig,
+    PaperTrainConfig,
+    PaperValidationGateConfig,
+)
 from .paper_model import PaperTemporalJEPA
+
+PaperDataset = Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +39,46 @@ class PaperOverfitGateResult:
     embedding_std_ratio: float
     final_effective_rank: float
     loss_passed: bool
+    spread_passed: bool
+    rank_passed: bool
+    passed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PaperEvaluationMetrics:
+    loss: float
+    embedding_std_mean: float
+    effective_rank: float
+    sample_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class PaperEpochMetrics:
+    epoch: int
+    train_loss: float
+    validation_loss: float
+    train_embedding_std: float
+    validation_embedding_std: float
+    train_effective_rank: float
+    validation_effective_rank: float
+    online_gradient_norm: float
+    predictor_gradient_norm: float
+
+
+@dataclass(frozen=True, slots=True)
+class PaperValidationGateResult:
+    all_finite: bool
+    initial_validation_loss: float
+    final_train_loss: float
+    final_validation_loss: float
+    validation_loss_ratio: float
+    validation_train_loss_ratio: float
+    initial_validation_embedding_std: float
+    final_validation_embedding_std: float
+    validation_embedding_std_ratio: float
+    final_validation_effective_rank: float
+    loss_passed: bool
+    generalization_gap_passed: bool
     spread_passed: bool
     rank_passed: bool
     passed: bool
@@ -62,7 +110,7 @@ def paper_trainable_parameters(model: PaperTemporalJEPA) -> tuple[nn.Parameter, 
 
 def make_paper_optimizer(
     model: PaperTemporalJEPA,
-    config: PaperOptimizationConfig,
+    config: PaperOptimizationConfig | PaperTrainConfig,
 ) -> torch.optim.Optimizer:
     """Build the explicitly local optimizer used by a development condition."""
 
@@ -86,7 +134,7 @@ def _gradient_norm(parameters: tuple[nn.Parameter, ...]) -> float:
 
 
 @torch.no_grad()
-def _embedding_spread(embeddings: torch.Tensor) -> tuple[float, float]:
+def embedding_spread(embeddings: torch.Tensor) -> tuple[float, float]:
     centered = embeddings.detach() - embeddings.detach().mean(dim=0, keepdim=True)
     embedding_std_mean = float(centered.square().mean(dim=0).sqrt().mean())
     squared_singular_values = torch.linalg.svdvals(centered).square()
@@ -126,7 +174,7 @@ def paper_train_step(
     predictor_parameters = tuple(model.predictor.parameters())
     online_gradient_norm = _gradient_norm(online_parameters)
     predictor_gradient_norm = _gradient_norm(predictor_parameters)
-    embedding_std_mean, effective_rank = _embedding_spread(online_embedding)
+    embedding_std_mean, effective_rank = embedding_spread(online_embedding)
 
     optimizer.step()
     model.update_target()
@@ -209,4 +257,203 @@ def evaluate_overfit_gate(
         spread_passed=spread_passed,
         rank_passed=rank_passed,
         passed=all_finite and loss_passed and spread_passed and rank_passed,
+    )
+
+
+def make_paper_loader(
+    dataset: PaperDataset,
+    config: PaperTrainConfig,
+    *,
+    shuffle: bool,
+) -> DataLoader:
+    generator = torch.Generator().manual_seed(config.seed)
+    return DataLoader(
+        dataset,
+        batch_size=config.batch_size,
+        shuffle=shuffle,
+        num_workers=config.num_workers,
+        generator=generator,
+        drop_last=False,
+    )
+
+
+@torch.no_grad()
+def evaluate_paper_model(
+    model: PaperTemporalJEPA,
+    loader: DataLoader,
+    device: torch.device,
+) -> PaperEvaluationMetrics:
+    model.eval()
+    total_loss = 0.0
+    sample_count = 0
+    embeddings: list[torch.Tensor] = []
+
+    for context, target, _ in loader:
+        context = context.to(device)
+        target = target.to(device)
+        online_embedding, prediction, target_embedding = model(context, target)
+        batch_size = context.shape[0]
+        total_loss += float(squared_embedding_error(prediction, target_embedding)) * batch_size
+        sample_count += batch_size
+        embeddings.append(online_embedding.cpu())
+
+    if sample_count == 0:
+        raise ValueError("cannot evaluate an empty dataset")
+    embedding_std_mean, effective_rank = embedding_spread(torch.cat(embeddings, dim=0))
+    return PaperEvaluationMetrics(
+        loss=total_loss / sample_count,
+        embedding_std_mean=embedding_std_mean,
+        effective_rank=effective_rank,
+        sample_count=sample_count,
+    )
+
+
+def _epoch_metrics(
+    epoch: int,
+    train_evaluation: PaperEvaluationMetrics,
+    validation_evaluation: PaperEvaluationMetrics,
+    online_gradient_norm: float,
+    predictor_gradient_norm: float,
+) -> PaperEpochMetrics:
+    return PaperEpochMetrics(
+        epoch=epoch,
+        train_loss=train_evaluation.loss,
+        validation_loss=validation_evaluation.loss,
+        train_embedding_std=train_evaluation.embedding_std_mean,
+        validation_embedding_std=validation_evaluation.embedding_std_mean,
+        train_effective_rank=train_evaluation.effective_rank,
+        validation_effective_rank=validation_evaluation.effective_rank,
+        online_gradient_norm=online_gradient_norm,
+        predictor_gradient_norm=predictor_gradient_norm,
+    )
+
+
+def run_paper_train_validation(
+    model: PaperTemporalJEPA,
+    train_dataset: PaperDataset,
+    validation_dataset: PaperDataset,
+    config: PaperTrainConfig,
+) -> list[PaperEpochMetrics]:
+    """Run a deterministic local train/validation development condition."""
+
+    config.validate()
+    device = torch.device(config.device)
+    model.to(device)
+    optimizer = make_paper_optimizer(model, config)
+    train_loader = make_paper_loader(train_dataset, config, shuffle=True)
+    train_evaluation_loader = make_paper_loader(train_dataset, config, shuffle=False)
+    validation_loader = make_paper_loader(validation_dataset, config, shuffle=False)
+
+    train_evaluation = evaluate_paper_model(model, train_evaluation_loader, device)
+    validation_evaluation = evaluate_paper_model(model, validation_loader, device)
+    history = [
+        _epoch_metrics(
+            0,
+            train_evaluation,
+            validation_evaluation,
+            online_gradient_norm=0.0,
+            predictor_gradient_norm=0.0,
+        )
+    ]
+
+    for epoch in range(1, config.epochs + 1):
+        gradient_sample_count = 0
+        online_gradient_total = 0.0
+        predictor_gradient_total = 0.0
+        for context, target, _ in train_loader:
+            context = context.to(device)
+            target = target.to(device)
+            step = paper_train_step(model, context, target, optimizer)
+            batch_size = context.shape[0]
+            gradient_sample_count += batch_size
+            online_gradient_total += step.online_gradient_norm * batch_size
+            predictor_gradient_total += step.predictor_gradient_norm * batch_size
+
+        train_evaluation = evaluate_paper_model(model, train_evaluation_loader, device)
+        validation_evaluation = evaluate_paper_model(model, validation_loader, device)
+        history.append(
+            _epoch_metrics(
+                epoch,
+                train_evaluation,
+                validation_evaluation,
+                online_gradient_norm=online_gradient_total / gradient_sample_count,
+                predictor_gradient_norm=predictor_gradient_total / gradient_sample_count,
+            )
+        )
+
+    return history
+
+
+def evaluate_validation_gate(
+    history: list[PaperEpochMetrics],
+    config: PaperValidationGateConfig,
+) -> PaperValidationGateResult:
+    """Evaluate preregistered held-out improvement and anti-collapse checks."""
+
+    config.validate()
+    if len(history) < config.final_window + 1:
+        raise ValueError("history must include epoch zero and the final window")
+
+    initial = history[0]
+    final = history[-config.final_window :]
+    all_values = [
+        value
+        for row in history
+        for value in (
+            row.train_loss,
+            row.validation_loss,
+            row.train_embedding_std,
+            row.validation_embedding_std,
+            row.train_effective_rank,
+            row.validation_effective_rank,
+            row.online_gradient_norm,
+            row.predictor_gradient_norm,
+        )
+    ]
+    all_finite = all(math.isfinite(value) for value in all_values)
+    final_train_loss = fmean(row.train_loss for row in final)
+    final_validation_loss = fmean(row.validation_loss for row in final)
+    validation_loss_ratio = final_validation_loss / max(initial.validation_loss, 1e-12)
+    validation_train_loss_ratio = final_validation_loss / max(final_train_loss, 1e-12)
+    final_validation_embedding_std = fmean(row.validation_embedding_std for row in final)
+    validation_embedding_std_ratio = final_validation_embedding_std / max(
+        initial.validation_embedding_std,
+        1e-12,
+    )
+    final_validation_effective_rank = fmean(
+        row.validation_effective_rank for row in final
+    )
+
+    loss_passed = validation_loss_ratio <= config.max_validation_loss_ratio
+    generalization_gap_passed = (
+        validation_train_loss_ratio <= config.max_validation_train_loss_ratio
+    )
+    spread_passed = (
+        validation_embedding_std_ratio >= config.min_validation_embedding_std_ratio
+    )
+    rank_passed = (
+        final_validation_effective_rank >= config.min_validation_effective_rank
+    )
+    return PaperValidationGateResult(
+        all_finite=all_finite,
+        initial_validation_loss=initial.validation_loss,
+        final_train_loss=final_train_loss,
+        final_validation_loss=final_validation_loss,
+        validation_loss_ratio=validation_loss_ratio,
+        validation_train_loss_ratio=validation_train_loss_ratio,
+        initial_validation_embedding_std=initial.validation_embedding_std,
+        final_validation_embedding_std=final_validation_embedding_std,
+        validation_embedding_std_ratio=validation_embedding_std_ratio,
+        final_validation_effective_rank=final_validation_effective_rank,
+        loss_passed=loss_passed,
+        generalization_gap_passed=generalization_gap_passed,
+        spread_passed=spread_passed,
+        rank_passed=rank_passed,
+        passed=(
+            all_finite
+            and loss_passed
+            and generalization_gap_passed
+            and spread_passed
+            and rank_passed
+        ),
     )

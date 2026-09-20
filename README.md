@@ -35,7 +35,10 @@ ejecutado [`paper_overfit_smoke.ipynb`](notebooks/paper_overfit_smoke.ipynb)
 pasó el gate: la loss final fue 0.0252% de la inicial, la dispersión retuvo
 99.1% y el rango efectivo final fue 12.08. Es una prueba de integración sobre
 un batch memorizable, no un resultado comparable con el paper. El próximo paso
-es una corrida corta con train y validation separados.
+es ejecutar la condición corta con train y validation separados, ya congelada
+en [`paper_train_validation_smoke.yaml`](configs/paper_train_validation_smoke.yaml).
+Sus criterios exigen mejora fuera de muestra, una brecha train/validation
+acotada y ausencia de colapso; el test split queda reservado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

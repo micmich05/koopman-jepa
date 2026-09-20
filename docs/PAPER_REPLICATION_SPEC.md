@@ -10,7 +10,7 @@
 - Extended version: arXiv v2, 2026-01-23
 - Implementation status: dataset audited, preprocessing conditions frozen,
   model variants implemented, and the fixed-batch development gate passed; a
-  train/validation protocol is pending
+  short train/validation protocol is frozen but not yet executed
 
 Primary sources:
 
@@ -415,6 +415,50 @@ sustained decline; embedding dispersion reaches its minimum at step 19, and
 effective rank reaches its minimum of `7.727` at step 26. Both representation
 diagnostics then recover. The transients therefore deserve monitoring in the
 next longer run even though this gate shows no complete collapse.
+
+### Frozen train/validation development gate
+
+`configs/paper_train_validation_smoke.yaml` defines the next condition. Like
+the fixed-batch gate, this is a local debugging protocol rather than a recovered
+paper configuration.
+
+| Parameter | Development value |
+|---|---:|
+| Training sequences | 32 per regime, 576 total |
+| Validation sequences | 8 per regime, 144 total |
+| Test sequences | 8 per regime, reserved and unused |
+| Normalization | `per_sequence` |
+| Encoder | `direct`, latent dimension 32 |
+| Predictor | linear, identity initialization |
+| EMA decay | 0.996 |
+| Optimizer | AdamW |
+| Learning rate | 0.0003 |
+| Weight decay | 0 |
+| Batch size | 64 |
+| Epochs | 10 |
+| Seed | 0 |
+| Device | CPU |
+
+The smaller learning rate is a conservative response to the early transient in
+the fixed-batch curves; it is not attributed to the paper. Training batches are
+shuffled reproducibly. Epoch 0 evaluates the untrained model, and every trained
+epoch is followed by complete, unshuffled train and validation evaluations.
+The test split remains untouched.
+
+The final two epochs are averaged and compared with the epoch-0 baseline. The
+criteria, frozen before execution, require:
+
+- every recorded loss, gradient norm, dispersion, and effective rank to be
+  finite;
+- final validation loss at most 50% of untrained validation loss;
+- final validation/train loss ratio at most 4;
+- final validation embedding dispersion at least 10% of its untrained value;
+- final validation effective rank at least 4.
+
+Passing would show that the prediction objective improves on unseen sequences
+without complete representational collapse under this small condition. It
+would still not establish downstream clustering quality, reproduce the paper,
+or justify using these unpublished optimization settings for a final result.
 
 ## Training details absent from the paper
 
