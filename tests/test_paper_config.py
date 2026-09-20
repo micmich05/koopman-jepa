@@ -294,3 +294,22 @@ def test_mlp_one_hidden_sensitivity_changes_only_predictor_depth() -> None:
     )
     with np.testing.assert_raises_regex(ValueError, "exactly one hidden layer"):
         invalid.validate()
+
+
+def test_mlp_two_stage_sensitivity_changes_only_encoder_projection() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    direct = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_one_hidden_development.yaml"
+    )
+    two_stage = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_two_stage_one_hidden_development.yaml"
+    )
+
+    assert two_stage.data == direct.data
+    assert two_stage.model == replace(direct.model, encoder_projection="two_stage")
+    assert two_stage.train == direct.train
+    assert two_stage.checkpoint_gate == direct.checkpoint_gate
+    assert two_stage.sweep == direct.sweep
+    assert two_stage.stability_gate == direct.stability_gate
+    assert two_stage.clustering == direct.clustering
+    assert two_stage.clustering_gate == direct.clustering_gate

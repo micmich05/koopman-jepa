@@ -155,6 +155,11 @@ un accidente de inicialización. Seed 11, aun con rango efectivo `2.10`, es la
 segunda mejor en pureza (`52.62%`): el filtro de rango no ocultaba una
 reproducción exitosa.
 
+La siguiente sensibilidad está congelada en
+[`paper_mlp_two_stage_one_hidden_development.yaml`](configs/paper_mlp_two_stage_one_hidden_development.yaml).
+Cambia únicamente el encoder directo `6144→32` por la lectura reconciliada del
+apéndice `6144→64→32`; todavía no fue ejecutada.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

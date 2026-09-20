@@ -1075,11 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze the next architecture sensitivity by changing only the encoder from the
-main-text `direct` projection (`6144 -> 32`) to the reconciled appendix reading
-`two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh data,
-seeds, optimizer, checkpoint policy, and clustering aggregation unchanged.
-Commit the protocol before execution and do not construct test.
+Prepare an unexecuted notebook for the frozen encoder sensitivity. It changes
+only the main-text `direct` projection (`6144 -> 32`) to the reconciled appendix
+reading `two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh
+data, seeds, optimizer, checkpoint policy, and clustering aggregation
+unchanged. Commit the notebook before execution and do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1208,3 +1208,8 @@ stability criteria pass. Seed 11, despite effective rank `2.10`, has the
 second-highest purity at `52.62%`, while seed 12 has rank `7.66` and the lowest
 purity at `47.60%`. The rank guard therefore did not conceal a successful
 clustering reproduction. Test remains untouched.
+
+The encoder sensitivity is frozen in
+`configs/paper_mlp_two_stage_one_hidden_development.yaml`. A configuration test
+requires parsed equality with the direct one-hidden condition after replacing
+only `model.encoder_projection` with `two_stage`. It has not been executed.
