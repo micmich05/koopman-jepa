@@ -173,7 +173,9 @@ la brecha con el paper.
 La siguiente sensibilidad está congelada en
 [`paper_mlp_low_lr_development.yaml`](configs/paper_mlp_low_lr_development.yaml):
 vuelve al mejor encoder directo y cambia únicamente el learning rate de
-`3e-4` a `1e-4`. Todavía no fue ejecutada.
+`3e-4` a `1e-4`. El notebook está preparado sin outputs en
+[`paper_mlp_low_lr_development.ipynb`](notebooks/paper_mlp_low_lr_development.ipynb)
+y todavía no fue ejecutado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

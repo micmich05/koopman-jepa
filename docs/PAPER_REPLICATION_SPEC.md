@@ -1075,11 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare a validation-only notebook for the frozen lower-learning-rate
-sensitivity. It uses the best architecture seen so far, direct encoder plus
-one-hidden predictor, and changes only AdamW learning rate from `3e-4` to
-`1e-4`. Keep data, seeds, 20 epochs, EMA, checkpoint policy, and clustering
-aggregation fixed. Commit the notebook before execution and do not construct
+Review and commit the prepared validation-only notebook for the frozen
+lower-learning-rate sensitivity, then run it unchanged. It uses the best
+architecture seen so far, direct encoder plus one-hidden predictor, and changes
+only AdamW learning rate from `3e-4` to `1e-4`. Keep data, seeds, 20 epochs,
+EMA, checkpoint policy, and clustering aggregation fixed. Do not construct
 test.
 
 An exploratory diagnostic notebook was executed at
@@ -1240,4 +1240,6 @@ quality under the current optimization. Test remains untouched.
 The optimization sensitivity is frozen in
 `configs/paper_mlp_low_lr_development.yaml`. A configuration test requires
 parsed equality with the direct one-hidden condition after replacing only
-`train.learning_rate` with `1e-4`. It has not been executed.
+`train.learning_rate` with `1e-4`. The unexecuted notebook
+`notebooks/paper_mlp_low_lr_development.ipynb` reports the formal predictive
+gate and the five-seed validation clustering result in one deterministic run.
