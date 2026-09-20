@@ -8,6 +8,7 @@ from typing import Literal
 import numpy as np
 import torch
 import yaml
+from scipy import signal as scipy_signal
 from torch.utils.data import Dataset
 
 PAPER_REGIME_NAMES = (
@@ -37,6 +38,8 @@ PAPER_PERIODIC_CYCLES = {
     "high": 15,
 }
 PAPER_PHASE_STD = np.pi
+PAPER_PULSE_COUNT = 5
+PAPER_PULSE_AMPLITUDE = 2.0
 
 Split = Literal["train", "val", "test"]
 MasterGenerator = Callable[[int, int, np.random.Generator], np.ndarray]
@@ -112,7 +115,7 @@ def generate_paper_master(
         raise ValueError("length must be positive")
     if regime_id < 0 or regime_id >= len(PAPER_REGIME_NAMES):
         raise ValueError(f"unknown regime_id: {regime_id}")
-    if regime_id > 6 and regime_id != 16:
+    if regime_id > 6 and regime_id not in {12, 13, 14, 15, 16}:
         name = PAPER_REGIME_NAMES[regime_id]
         raise NotImplementedError(f"paper regime is not implemented yet: {name}")
 
@@ -122,7 +125,15 @@ def generate_paper_master(
         signal = _generate_linear_trend(1.5, length, rng)
     elif regime_id == 6:
         signal = _generate_linear_trend(-1.5, length, rng)
-    else:
+    elif regime_id == 12:
+        signal = _generate_square("low", length)
+    elif regime_id == 13:
+        signal = _generate_square("high", length)
+    elif regime_id == 14:
+        signal = _generate_sawtooth(length, rng)
+    elif regime_id == 15:
+        signal = _generate_sparse_pulses(length, rng)
+    else:  # regime_id == 16
         signal = _generate_sine_trend(length, rng)
 
     return signal.astype(np.float32)
@@ -173,6 +184,30 @@ def _generate_sine_trend(length: int, rng: np.random.Generator) -> np.ndarray:
     phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
     sinusoid = 0.8 * np.sin(_angular_frequency("medium", length) * sample_time + phase)
     return sinusoid + _generate_linear_trend(1.0, length, rng)
+
+
+def _generate_square(band: str, length: int) -> np.ndarray:
+    sample_time = np.arange(length, dtype=np.float64)
+    phase = _angular_frequency(band, length) * sample_time
+    return scipy_signal.square(phase)
+
+
+def _generate_sawtooth(length: int, rng: np.random.Generator) -> np.ndarray:
+    sample_time = np.arange(length, dtype=np.float64)
+    initial_phase = rng.uniform(0.0, 2.0 * np.pi)
+    phase = _angular_frequency("medium", length) * sample_time + initial_phase
+    return scipy_signal.sawtooth(phase, width=1.0)
+
+
+def _generate_sparse_pulses(length: int, rng: np.random.Generator) -> np.ndarray:
+    width = max(1, round(length / 50))
+    valid_start_count = length - width + 1
+    pulse_count = min(PAPER_PULSE_COUNT, valid_start_count)
+    starts = rng.choice(valid_start_count, size=pulse_count, replace=False)
+    signal = np.zeros(length, dtype=np.float64)
+    for start in starts:
+        signal[start : start + width] = PAPER_PULSE_AMPLITUDE
+    return signal
 
 
 class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):

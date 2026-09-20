@@ -2,9 +2,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from scipy import signal as scipy_signal
 
 from koopman_jepa.paper_data import (
     PAPER_PERIODIC_CYCLES,
+    PAPER_PULSE_AMPLITUDE,
+    PAPER_PULSE_COUNT,
     PAPER_REGIME_NAMES,
     PaperDataConfig,
     PaperRegimeDataset,
@@ -198,3 +201,58 @@ def test_sine_trend_matches_published_sum_under_local_time_assumption() -> None:
     actual = generate_paper_master(16, length, np.random.default_rng(41))
 
     assert np.allclose(actual, expected, atol=1e-6)
+
+
+def test_square_regimes_have_published_cycles_and_binary_levels() -> None:
+    length = 1024
+    for regime_id, band in ((12, "low"), (13, "high")):
+        signal = generate_paper_master(regime_id, length, np.random.default_rng(0))
+        spectrum = np.abs(np.fft.rfft(signal))
+        dominant_bin = int(np.argmax(spectrum[1:]) + 1)
+        circular_transitions = np.count_nonzero(signal != np.roll(signal, 1))
+
+        assert set(np.unique(signal)) == {-1.0, 1.0}
+        assert dominant_bin == PAPER_PERIODIC_CYCLES[band]
+        assert circular_transitions == 2 * PAPER_PERIODIC_CYCLES[band]
+        assert signal[0] == 1.0
+
+
+def test_sawtooth_uses_random_uniform_phase_and_rising_ramps() -> None:
+    length = 1024
+    expected_rng = np.random.default_rng(53)
+    initial_phase = expected_rng.uniform(0.0, 2.0 * np.pi)
+    expected = scipy_signal.sawtooth(
+        2.0
+        * np.pi
+        * PAPER_PERIODIC_CYCLES["medium"]
+        * np.arange(length)
+        / length
+        + initial_phase,
+        width=1.0,
+    )
+    actual = generate_paper_master(14, length, np.random.default_rng(53))
+    differences = np.diff(actual)
+
+    assert np.allclose(actual, expected, atol=1e-6)
+    assert np.count_nonzero(differences < 0.0) == PAPER_PERIODIC_CYCLES["medium"]
+    assert np.all(differences[differences > 0.0] > 0.0)
+
+
+def test_sparse_pulses_follow_documented_local_policy() -> None:
+    length = 1024
+    width = round(length / 50)
+    expected_rng = np.random.default_rng(67)
+    starts = expected_rng.choice(
+        length - width + 1,
+        size=PAPER_PULSE_COUNT,
+        replace=False,
+    )
+    expected = np.zeros(length, dtype=np.float32)
+    for start in starts:
+        expected[start : start + width] = PAPER_PULSE_AMPLITUDE
+
+    actual = generate_paper_master(15, length, np.random.default_rng(67))
+
+    assert np.array_equal(actual, expected)
+    assert set(np.unique(actual)) <= {0.0, PAPER_PULSE_AMPLITUDE}
+    assert np.count_nonzero(actual) <= PAPER_PULSE_COUNT * width

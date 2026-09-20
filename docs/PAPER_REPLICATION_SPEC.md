@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset generator in progress (8 of 18 regimes)
+- Implementation status: dataset generator in progress (12 of 18 regimes)
 
 Primary sources:
 
@@ -149,6 +149,25 @@ consequences that the dataset audit must show:
 - literal `Normal(0, 1)` slope variation around base slopes `+/-1.5` gives each
   pure-trend class a small probability of reversing direction, creating label
   overlap unless the unpublished implementation clipped or constrained signs.
+
+### Local non-smooth waveform assumptions
+
+The paper specifies only the square-wave periods, a randomized initial phase
+for the sawtooth, and approximately five positive pulses of width `L/50` and
+amplitude `2.0`. The independently implemented baseline therefore uses these
+named conventions:
+
+- square waves use `scipy.signal.square` with zero initial phase, so a zero
+  crossing takes value `+1`; no random square-wave phase is introduced;
+- the sawtooth is a rising `scipy.signal.sawtooth(..., width=1)` with initial
+  phase sampled uniformly from `[0, 2*pi)`;
+- sparse pulses are exactly five positive rectangular pulses, each with width
+  `round(L/50)` and amplitude `2.0`; starts are sampled uniformly without
+  replacement from all valid start positions, but pulse intervals may overlap.
+
+These conventions require sensitivity checks because the paper does not state
+them. Per-sequence standardization also removes the absolute pulse amplitude;
+the number, width, position, and overlap pattern remain observable.
 
 ## Confirmed model specification
 
@@ -341,10 +360,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Complete the remaining 10 regimes and then build the dataset-audit notebook.
-The five sinusoidal and three trend-containing regimes are implemented. They
-are covered by frequency, amplitude, harmonic-content, deterministic
-randomization, affine standardization, and zero-observation-noise tests. Use
-named assumptions for every unresolved item, and keep the reduced Phase 0
-generator unchanged. Do not implement or train the paper-faithful model until
-the dataset audit is reviewed.
+Complete the remaining six stochastic regimes and then build the dataset-audit
+notebook. The five sinusoidal, three trend-containing, and four non-smooth
+waveform regimes are implemented. They are covered by frequency, amplitude,
+harmonic-content, deterministic randomization, affine standardization,
+transition-count, pulse-policy, and zero-observation-noise tests. Use named
+assumptions for every unresolved item, and keep the reduced Phase 0 generator
+unchanged. Do not implement or train the paper-faithful model until the dataset
+audit is reviewed.

@@ -16,3 +16,12 @@ generator_assumptions:
   trend_time_axis: linspace_0_1_inclusive
   trend_slope_distribution: base_plus_normal_0_1
   trend_intercept_distribution: normal_0_pi_squared
+  square_implementation: scipy_square_zero_phase
+  square_zero_crossing_value: 1.0
+  sawtooth_implementation: scipy_sawtooth_rising
+  sawtooth_phase_distribution: uniform_0_2pi
+  pulse_count: 5
+  pulse_width: round_master_length_div_50
+  pulse_shape: positive_rectangle
+  pulse_start_sampling: uniform_without_replacement
+  pulse_overlap: allowed
