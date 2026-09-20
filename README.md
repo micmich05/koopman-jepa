@@ -112,6 +112,17 @@ mínimo 12.25 y mínima retención de rango 0.682. La pureza random media fue
 predeclarado exige que todas las seeds pasen y no se modifica después de ver
 test. La partición queda consumida también para random.
 
+El análisis exploratorio posterior está ejecutado en
+[`paper_linear_random_heldout_diagnostic.ipynb`](notebooks/paper_linear_random_heldout_diagnostic.ipynb).
+Reproduce exactamente los conteos del gate y muestra que la pureza depende de
+la inicialización de K-means incluso con `n_init=20`: sobre las condiciones y
+seeds observadas, identidad abarca 43.75–55.56% y random 44.44–56.94%. Los
+regímenes random con menor recall medio son `ar_pos_strong` (10%), `ma_pos`
+(17.5%) y `pulses_sparse` (22.5%); tendencias y ondas cuadradas llegan a 100%.
+La pareja de senos indistinguible permanece dentro del par sólo 53.8% de las
+veces en random, así que explica parte, pero no todo, del clustering débil. Este
+diagnóstico no modifica el `FAIL` ni crea una nueva decisión sobre test.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

@@ -1075,16 +1075,43 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Record the paired smoke result as FAIL without retuning its threshold or
-reusing its consumed test for another decision. Before further training,
-preregister the next independent condition: either a substantially larger
-fresh-seed linear confirmatory run with uncertainty intervals, or the first
-paper-scale MLP clustering reproduction. Keep the reduced Phase 0 pipeline and
-its failed result unchanged.
+Freeze the first MLP clustering development protocol using train/validation
+only and a fresh data realization. Its purpose is to approach the paper's main
+reported `65.48%` purity result before any new test is opened. Predeclare
+K-means aggregation across multiple random states and uncertainty across model
+seeds so a single clustering initialization cannot decide the result. Keep the
+consumed linear smoke, its FAIL, and this exploratory diagnosis unchanged.
 
-An exploratory diagnostic notebook is prepared without outputs at
+An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
 same checkpoints and consumed test only to localize regime confusions, measure
 K-means random-state sensitivity, and isolate the observationally equivalent
 sinusoid pair. It contains no aggregate gate and cannot revise the recorded
-FAIL. Commit this notebook before executing it.
+FAIL.
+
+The notebook reproduces every fixed purity count exactly. Across 20 descriptive
+K-means random states, each still using `n_init = 20`, observed purity spans
+`43.75–55.56%` for identity and `44.44–56.94%` for random over the five model
+seeds. Seed 7 random has mean `47.67% ± 1.46%`, compared with its frozen value
+`47.92%`. The algorithmic variation is material relative to the three-sample
+gap that triggered the gate, but the predeclared `random_state = 0` remains the
+only value used for the recorded decision.
+
+The label-aligned confusion matrices show heterogeneous regime difficulty.
+Random mean recall is `100%` for both trends and both square waves, but only
+`10.0%` for strong positive AR, `17.5%` for positive MA, and `22.5%` for sparse
+pulses. Relative to identity, random improves weak positive AR by 15 percentage
+points and high-frequency sine by 12.5 points, while reducing strong positive
+AR by 15 points and positive MA and negative AR by 12.5 points each. The model
+is redistributing which regimes are separated rather than uniformly degrading
+or improving clustering.
+
+For `Sine_MedFreq` and `Sine_LowAmp`, the mean fraction assigned to either
+member of the indistinguishable pair is `52.5%` under identity and `53.8%`
+under random. Exact observational equivalence therefore contributes to label
+ambiguity, but almost half of those samples are mapped outside the pair after
+Hungarian alignment; it is not the sole source of low purity.
+
+This post-hoc evidence diagnoses small-sample and clustering-instability issues
+but does not change any threshold, seed, or conclusion. The paired smoke result
+remains FAIL.
