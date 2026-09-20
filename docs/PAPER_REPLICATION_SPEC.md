@@ -1075,12 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the unexecuted train/validation-only MLP development notebook.
-Then run it without changing the frozen protocol. It selects checkpoints from
-predictive validation constraints, computes the frozen multi-state K-means
-aggregation on validation only, reports prediction, rank, purity, and
-variability gates, and contains no construction of test.
-Keep the consumed linear result unchanged.
+Freeze a separate one-hidden-layer MLP sensitivity that changes only
+`mlp_depth` from `two_hidden` to `one_hidden`. Keep the same fresh data, model
+seeds, optimizer, epochs, predictive checkpoint gates, and clustering gates.
+Commit that protocol before execution, continue to avoid test construction,
+and keep the consumed linear result unchanged.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1116,7 +1115,7 @@ This post-hoc evidence diagnoses small-sample and clustering-instability issues
 but does not change any threshold, seed, or conclusion. The paired smoke result
 remains FAIL.
 
-### Frozen MLP clustering development protocol (not yet executed)
+### Executed MLP clustering development protocol
 
 `configs/paper_mlp_clustering_development.yaml` freezes the first direct step
 toward the paper's main `65.48%` MLP-purity result. This is a development
@@ -1150,14 +1149,30 @@ The development clustering gate requires all of the following:
 The unchanged scale-invariant prediction, validation/train-gap, embedding
 spread, and effective-rank gates must also pass. These are local readiness
 criteria for deciding whether to scale, not an equivalence test against the
-paper's `65.48%` held-out value. No MLP training or test evaluation has yet
-been run under this protocol.
+paper's `65.48%` held-out value.
 
 The aggregation implementation is complete in
 `src/koopman_jepa/paper_evaluation.py`. Synthetic tests cover perfectly
 separated embeddings across multiple K-means states, aggregate mean failure,
 within-seed instability, missing and duplicate model seeds, and non-finite
-metrics. The unexecuted notebook
+metrics. The executed notebook
 `notebooks/paper_mlp_clustering_development.ipynb` implements the frozen
 train/validation workflow without constructing test, and a source-level test
-enforces that boundary. No empirical MLP result has been produced yet.
+enforces that boundary.
+
+The predictive prerequisite produced `FAIL` before clustering. Seeds 10, 13,
+and 14 selected epochs 5, 4, and 5; seeds 11 and 12 had no eligible checkpoint.
+At their closest epochs both rejected seeds passed loss improvement,
+validation/train gap, and embedding-spread constraints, but effective ranks
+`2.71` and `3.48` remained below the local minimum `4.0`. Their corresponding
+validation/baseline loss ratios were `0.018` and `0.026`, and their gaps were
+`1.052` and `1.044`. The failure is therefore localized to low-dimensional
+anisotropy rather than constant collapse or overfitting.
+
+K-means was deliberately omitted: reporting only the three accepted seeds
+would make the clustering result conditional on a post-hoc subset. Test was
+neither constructed nor consulted. The error curves reach their minima around
+epochs 4–5 and then rise while embedding scale grows rapidly, so simply adding
+epochs is not the next planned response. The next clean development sensitivity
+uses the contradictory prose reading of the published predictor,
+`32 -> 64 -> 32`, while retaining every other frozen choice and the rank gate.

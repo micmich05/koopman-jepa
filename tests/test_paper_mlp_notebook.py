@@ -28,8 +28,13 @@ def test_mlp_development_notebook_is_validation_only() -> None:
     assert "assert replay_passed" not in source
 
 
-def test_mlp_development_notebook_starts_without_outputs() -> None:
+def test_mlp_development_notebook_has_completed_outputs_without_errors() -> None:
     code_cells = _mlp_notebook_code()
 
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(cell["outputs"] for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )

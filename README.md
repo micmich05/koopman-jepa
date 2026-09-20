@@ -130,11 +130,15 @@ régimen, seeds de modelo 10–14 y el MLP `32→64→64→32`. La pureza de val
 se promediará sobre 20 `random_state` de K-means, todos con `n_init=20`. El gate
 de desarrollo exige media global ≥60%, peor seed ≥55%, CV entre seeds ≤10% y
 desviación intra-seed ≤3 puntos. Test no se construirá en esta etapa.
-Las métricas agregadas y el gate ya están implementados y cubiertos por casos
-sintéticos. El notebook de desarrollo MLP también quedó preparado, todavía sin
-ejecutar: usa únicamente `train`/`validation`, selecciona el checkpoint por las
-restricciones predictivas congeladas y evalúa los 20 estados de K-means. Un test
-de fuente verifica que no construya el split reservado `test`.
+Las métricas agregadas y el gate están implementados y cubiertos por casos
+sintéticos. El notebook de desarrollo MLP fue ejecutado sólo con
+`train`/`validation` y dio `FAIL` antes de clustering: seeds 10, 13 y 14
+seleccionaron épocas 5, 4 y 5, mientras que seeds 11 y 12 no alcanzaron el rango
+efectivo mínimo `4.0` (mejores valores `2.71` y `3.48`). Predicción, brecha y
+dispersión sí pasaron. Para no sesgar el resultado, K-means fue omitido en vez de
+medirse sólo sobre las tres seeds aceptadas. Test no fue construido ni
+consultado. La próxima condición propuesta cambia únicamente el predictor a la
+lectura de una capa oculta `32→64→32`; no relaja el gate observado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
