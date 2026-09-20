@@ -158,9 +158,11 @@ reproducción exitosa.
 La siguiente sensibilidad está congelada en
 [`paper_mlp_two_stage_one_hidden_development.yaml`](configs/paper_mlp_two_stage_one_hidden_development.yaml).
 Cambia únicamente el encoder directo `6144→32` por la lectura reconciliada del
-apéndice `6144→64→32`. El notebook está preparado sin outputs en
+apéndice `6144→64→32`. El notebook
 [`paper_mlp_two_stage_one_hidden_development.ipynb`](notebooks/paper_mlp_two_stage_one_hidden_development.ipynb)
-y todavía no fue ejecutado.
+y ya fue ejecutado. Dio `FAIL` antes de clustering: sólo seed 10 alcanzó el
+rango mínimo (checkpoint en época 4, rango `4.53`); las otras cuatro quedaron
+en `1.22–2.91`. El encoder adicional empeoró la concentración dimensional.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

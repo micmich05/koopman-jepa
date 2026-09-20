@@ -1075,12 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the prepared, unexecuted notebook for the frozen encoder
-sensitivity, then run it without changes. It changes only the main-text
-`direct` projection (`6144 -> 32`) to the reconciled appendix reading
-`two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh data,
-seeds, optimizer, checkpoint policy, and clustering aggregation unchanged. Do
-not construct test.
+Prepare a validation-only post-hoc clustering diagnostic for the failed
+two-stage encoder sensitivity. Select the minimum-loss checkpoint for all five
+seeds without using effective rank as a selection filter, retain all frozen
+K-means settings, and report the formal rank status. This cannot change the
+formal FAIL or authorize test. Commit it before execution.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1213,6 +1212,13 @@ clustering reproduction. Test remains untouched.
 The encoder sensitivity is frozen in
 `configs/paper_mlp_two_stage_one_hidden_development.yaml`. A configuration test
 requires parsed equality with the direct one-hidden condition after replacing
-only `model.encoder_projection` with `two_stage`. The unexecuted notebook
+only `model.encoder_projection` with `two_stage`. The executed notebook
 `notebooks/paper_mlp_two_stage_one_hidden_development.ipynb` implements the
 validation-only run and skips clustering if the predictive prerequisite fails.
+
+The executed formal run produced only one eligible checkpoint: seed 10 at
+epoch 4, validation/baseline ratio `0.004`, validation/train gap `1.022`, and
+effective rank `4.53`. The minimum-loss epochs for seeds 11–14 had ranks `1.22`,
+`2.91`, `1.48`, and `1.89`. The two-stage projection therefore worsened
+low-dimensional concentration relative to the direct one-hidden condition.
+Clustering and test were not run.
