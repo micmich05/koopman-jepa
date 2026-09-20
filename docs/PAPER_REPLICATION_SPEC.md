@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset generator in progress (17 of 18 regimes)
+- Implementation status: all 18 dataset regimes implemented; audit pending
 
 Primary sources:
 
@@ -185,6 +185,20 @@ drawn exactly from the stationary marginal distribution. The dataset notebook
 must compare early and late empirical variance, and a positive-burn-in variant
 must be included in the sensitivity analysis. Per-sequence standardization
 removes the innovation scale but does not remove this possible transient.
+
+### Local high-noise assumption
+
+The paper describes `Sine_HighNoise` only as a medium-frequency sinusoid with
+internal process-noise standard deviation approximately three times that of
+the ARMA processes. The local baseline interprets this as independent Gaussian
+noise with standard deviation `3.0`, added to a unit-amplitude sinusoid whose
+phase follows the same `Normal(0, pi^2)` convention as the other sinusoids.
+
+This gives a pre-standardization RMS signal-to-noise ratio of
+`(1/sqrt(2))/3`, approximately `0.236` or `-12.55 dB`. Per-sequence
+standardization preserves that ratio. Both the noise family and the exact
+factor require sensitivity checks because “approximately 3x” is not a complete
+executable specification.
 
 ## Confirmed model specification
 
@@ -377,10 +391,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement the remaining high-noise sinusoid and then build the dataset-audit
-notebook. Seventeen regimes are implemented, including all five published AR,
-MA, and ARMA processes. Tests cover their exact recursions and expected
-empirical lag-one correlations in addition to the deterministic-signal checks.
-Use named assumptions for every unresolved item, and keep the reduced Phase 0
+Build and execute the dataset-audit notebook over all 18 implemented regimes.
+It must combine quantitative checks with written interpretation of every
+figure, explicitly distinguish published parameters from local assumptions,
+and evaluate the required sensitivity variants. Keep the reduced Phase 0
 generator unchanged. Do not implement or train the paper-faithful model until
 the dataset audit is reviewed.

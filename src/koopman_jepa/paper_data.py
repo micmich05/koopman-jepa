@@ -41,6 +41,7 @@ PAPER_PERIODIC_CYCLES = {
 PAPER_PHASE_STD = np.pi
 PAPER_PULSE_COUNT = 5
 PAPER_PULSE_AMPLITUDE = 2.0
+PAPER_HIGH_NOISE_STD = 3.0
 PAPER_ARMA_COEFFICIENTS = {
     7: ((0.9,), ()),
     8: ((0.3,), ()),
@@ -123,10 +124,6 @@ def generate_paper_master(
         raise ValueError("length must be positive")
     if regime_id < 0 or regime_id >= len(PAPER_REGIME_NAMES):
         raise ValueError(f"unknown regime_id: {regime_id}")
-    if regime_id == 17:
-        name = PAPER_REGIME_NAMES[regime_id]
-        raise NotImplementedError(f"paper regime is not implemented yet: {name}")
-
     if regime_id <= 4:
         signal = _generate_sinusoid(regime_id, length, rng)
     elif regime_id == 5:
@@ -144,8 +141,10 @@ def generate_paper_master(
         signal = _generate_sawtooth(length, rng)
     elif regime_id == 15:
         signal = _generate_sparse_pulses(length, rng)
-    else:  # regime_id == 16
+    elif regime_id == 16:
         signal = _generate_sine_trend(length, rng)
+    else:  # regime_id == 17
+        signal = _generate_high_noise_sine(length, rng)
 
     return signal.astype(np.float32)
 
@@ -236,6 +235,14 @@ def _generate_arma(
         distrvs=rng.standard_normal,
         burnin=0,
     )
+
+
+def _generate_high_noise_sine(length: int, rng: np.random.Generator) -> np.ndarray:
+    sample_time = np.arange(length, dtype=np.float64)
+    phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+    sinusoid = np.sin(_angular_frequency("medium", length) * sample_time + phase)
+    internal_noise = rng.normal(loc=0.0, scale=PAPER_HIGH_NOISE_STD, size=length)
+    return sinusoid + internal_noise
 
 
 class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):

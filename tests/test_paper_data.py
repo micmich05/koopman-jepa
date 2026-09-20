@@ -6,6 +6,7 @@ from scipy import signal as scipy_signal
 
 from koopman_jepa.paper_data import (
     PAPER_ARMA_COEFFICIENTS,
+    PAPER_HIGH_NOISE_STD,
     PAPER_PERIODIC_CYCLES,
     PAPER_PULSE_AMPLITUDE,
     PAPER_PULSE_COUNT,
@@ -151,9 +152,11 @@ def test_sinusoidal_generation_is_seeded_and_noise_free() -> None:
     assert np.max(np.abs(first - fitted)) < 1e-6
 
 
-def test_unimplemented_regimes_fail_explicitly() -> None:
-    with np.testing.assert_raises_regex(NotImplementedError, "sine_high_noise"):
-        generate_paper_master(17, 1024, np.random.default_rng(0))
+def test_unknown_regimes_fail_explicitly() -> None:
+    with np.testing.assert_raises_regex(ValueError, "unknown regime_id"):
+        generate_paper_master(18, 1024, np.random.default_rng(0))
+    with np.testing.assert_raises_regex(ValueError, "unknown regime_id"):
+        generate_paper_master(-1, 1024, np.random.default_rng(0))
 
 
 def test_trend_regimes_follow_documented_randomization() -> None:
@@ -299,3 +302,35 @@ def test_ma_regime_has_expected_empirical_lag_one_correlation() -> None:
     expected = 0.7 / (1.0 + 0.7**2)
 
     assert np.isclose(lag_one_correlation, expected, atol=0.02)
+
+
+def test_high_noise_sine_matches_documented_local_interpretation() -> None:
+    length = 1024
+    expected_rng = np.random.default_rng(97)
+    phase = expected_rng.normal(0.0, np.pi)
+    sample_time = np.arange(length)
+    sinusoid = np.sin(
+        2.0 * np.pi * PAPER_PERIODIC_CYCLES["medium"] * sample_time / length + phase
+    )
+    noise = expected_rng.normal(0.0, PAPER_HIGH_NOISE_STD, size=length)
+    expected = sinusoid + noise
+
+    actual = generate_paper_master(17, length, np.random.default_rng(97))
+
+    assert np.allclose(actual, expected, atol=1e-6)
+
+
+def test_high_noise_component_has_expected_scale_and_no_temporal_correlation() -> None:
+    length = 50_000
+    expected_rng = np.random.default_rng(101)
+    phase = expected_rng.normal(0.0, np.pi)
+    sample_time = np.arange(length)
+    sinusoid = np.sin(
+        2.0 * np.pi * PAPER_PERIODIC_CYCLES["medium"] * sample_time / length + phase
+    )
+    signal = generate_paper_master(17, length, np.random.default_rng(101))
+    recovered_noise = signal - sinusoid
+    lag_one_correlation = np.corrcoef(recovered_noise[:-1], recovered_noise[1:])[0, 1]
+
+    assert np.isclose(recovered_noise.std(), PAPER_HIGH_NOISE_STD, atol=0.03)
+    assert abs(lag_one_correlation) < 0.02

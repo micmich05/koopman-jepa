@@ -31,3 +31,5 @@ generator_assumptions:
   arma_initial_state: scipy_lfilter_zero_state
   arma_ar_polynomial_convention: one_then_negative_coefficients
   arma_ma_polynomial_convention: one_then_positive_coefficients
+  high_noise_process: independent_gaussian
+  high_noise_standard_deviation: 3.0
