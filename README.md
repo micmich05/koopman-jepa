@@ -65,8 +65,10 @@ congelar la evaluación held-out. El protocolo lineal-identidad ya está fijado
 en
 [`paper_linear_identity_heldout_smoke.yaml`](configs/paper_linear_identity_heldout_smoke.yaml),
 y la captura/reproducción exacta del checkpoint ya está implementada y cubierta
-por tests. Faltan las métricas del operador y el notebook no ejecutado antes de
-consultar test. Este smoke test todavía no reproduce los resultados del paper.
+por tests. Las métricas del operador y el gate conjunto también están
+implementados y validados con casos sintéticos. Falta preparar y revisar el
+notebook no ejecutado antes de consultar test. Este smoke test todavía no
+reproduce los resultados del paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

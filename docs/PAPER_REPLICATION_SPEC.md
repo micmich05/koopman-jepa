@@ -685,6 +685,15 @@ be compared directly with the paper's `65.48%` result because that number comes
 from the separate nonlinear-MLP predictor experiment. No threshold may be
 changed after opening test.
 
+The frozen operator diagnostics and aggregate conjunction are implemented in
+`src/koopman_jepa/paper_evaluation.py`. The implementation uses the predictor
+matrix in the same column-vector convention as the equations (`M c`), which is
+`centroids @ M.T` for row-major NumPy centroids. Its effective-rank calculation
+matches the entropy-of-squared-singular-values definition used during
+training. Synthetic unit tests cover the exact identity, a nonsymmetric matrix
+with closed-form norms, missing and failed seeds, non-finite metrics, and input
+shape validation. No held-out embedding has been computed.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -819,8 +828,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test the linear-operator metrics defined by the frozen
-held-out protocol, then prepare an unexecuted notebook that aborts unless all
-checkpoint replay checks pass before constructing test. Do not instantiate
-test until both pieces are committed. Keep the reduced Phase 0 pipeline
-unchanged.
+Prepare an unexecuted held-out notebook that first reproduces all five selected
+checkpoints and aborts unless every replay check passes. Only the subsequent
+cell may construct test and compute the frozen linear-operator diagnostics. Do
+not execute the notebook until its control flow and written interpretation are
+reviewed and committed. Keep the reduced Phase 0 pipeline unchanged.
