@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset generator in progress (12 of 18 regimes)
+- Implementation status: dataset generator in progress (17 of 18 regimes)
 
 Primary sources:
 
@@ -168,6 +168,23 @@ named conventions:
 These conventions require sensitivity checks because the paper does not state
 them. Per-sequence standardization also removes the absolute pulse amplitude;
 the number, width, position, and overlap pattern remain observable.
+
+### Local ARMA assumptions
+
+The five AR, MA, and ARMA regimes use
+`statsmodels.tsa.arima_process.ArmaProcess`, as specified by the paper. The AR
+polynomial follows the statsmodels convention `[1, -phi_1, ...]`, while the MA
+polynomial is `[1, theta_1, ...]`. Innovations are independent standard-normal
+samples drawn from the stable per-sequence RNG.
+
+The paper does not report burn-in or initial conditions. The local baseline
+uses the `generate_sample` default `burnin=0`, which corresponds to a zero-state
+filter before the first innovation. This minimizes deviations from the
+documented library default but means the beginning of a finite sample is not
+drawn exactly from the stationary marginal distribution. The dataset notebook
+must compare early and late empirical variance, and a positive-burn-in variant
+must be included in the sensitivity analysis. Per-sequence standardization
+removes the innovation scale but does not remove this possible transient.
 
 ## Confirmed model specification
 
@@ -360,11 +377,10 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Complete the remaining six stochastic regimes and then build the dataset-audit
-notebook. The five sinusoidal, three trend-containing, and four non-smooth
-waveform regimes are implemented. They are covered by frequency, amplitude,
-harmonic-content, deterministic randomization, affine standardization,
-transition-count, pulse-policy, and zero-observation-noise tests. Use named
-assumptions for every unresolved item, and keep the reduced Phase 0 generator
-unchanged. Do not implement or train the paper-faithful model until the dataset
-audit is reviewed.
+Implement the remaining high-noise sinusoid and then build the dataset-audit
+notebook. Seventeen regimes are implemented, including all five published AR,
+MA, and ARMA processes. Tests cover their exact recursions and expected
+empirical lag-one correlations in addition to the deterministic-signal checks.
+Use named assumptions for every unresolved item, and keep the reduced Phase 0
+generator unchanged. Do not implement or train the paper-faithful model until
+the dataset audit is reviewed.

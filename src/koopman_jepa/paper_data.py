@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import yaml
 from scipy import signal as scipy_signal
+from statsmodels.tsa.arima_process import ArmaProcess
 from torch.utils.data import Dataset
 
 PAPER_REGIME_NAMES = (
@@ -40,6 +41,13 @@ PAPER_PERIODIC_CYCLES = {
 PAPER_PHASE_STD = np.pi
 PAPER_PULSE_COUNT = 5
 PAPER_PULSE_AMPLITUDE = 2.0
+PAPER_ARMA_COEFFICIENTS = {
+    7: ((0.9,), ()),
+    8: ((0.3,), ()),
+    9: ((-0.7,), ()),
+    10: ((), (0.7,)),
+    11: ((0.5,), (-0.4,)),
+}
 
 Split = Literal["train", "val", "test"]
 MasterGenerator = Callable[[int, int, np.random.Generator], np.ndarray]
@@ -115,7 +123,7 @@ def generate_paper_master(
         raise ValueError("length must be positive")
     if regime_id < 0 or regime_id >= len(PAPER_REGIME_NAMES):
         raise ValueError(f"unknown regime_id: {regime_id}")
-    if regime_id > 6 and regime_id not in {12, 13, 14, 15, 16}:
+    if regime_id == 17:
         name = PAPER_REGIME_NAMES[regime_id]
         raise NotImplementedError(f"paper regime is not implemented yet: {name}")
 
@@ -125,6 +133,9 @@ def generate_paper_master(
         signal = _generate_linear_trend(1.5, length, rng)
     elif regime_id == 6:
         signal = _generate_linear_trend(-1.5, length, rng)
+    elif regime_id <= 11:
+        ar_coefficients, ma_coefficients = PAPER_ARMA_COEFFICIENTS[regime_id]
+        signal = _generate_arma(ar_coefficients, ma_coefficients, length, rng)
     elif regime_id == 12:
         signal = _generate_square("low", length)
     elif regime_id == 13:
@@ -208,6 +219,23 @@ def _generate_sparse_pulses(length: int, rng: np.random.Generator) -> np.ndarray
     for start in starts:
         signal[start : start + width] = PAPER_PULSE_AMPLITUDE
     return signal
+
+
+def _generate_arma(
+    ar_coefficients: tuple[float, ...],
+    ma_coefficients: tuple[float, ...],
+    length: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    ar_polynomial = np.array((1.0, *(-value for value in ar_coefficients)))
+    ma_polynomial = np.array((1.0, *ma_coefficients))
+    process = ArmaProcess(ar_polynomial, ma_polynomial)
+    return process.generate_sample(
+        nsample=length,
+        scale=1.0,
+        distrvs=rng.standard_normal,
+        burnin=0,
+    )
 
 
 class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):

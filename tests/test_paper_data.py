@@ -5,6 +5,7 @@ import torch
 from scipy import signal as scipy_signal
 
 from koopman_jepa.paper_data import (
+    PAPER_ARMA_COEFFICIENTS,
     PAPER_PERIODIC_CYCLES,
     PAPER_PULSE_AMPLITUDE,
     PAPER_PULSE_COUNT,
@@ -151,8 +152,8 @@ def test_sinusoidal_generation_is_seeded_and_noise_free() -> None:
 
 
 def test_unimplemented_regimes_fail_explicitly() -> None:
-    with np.testing.assert_raises_regex(NotImplementedError, "ar_pos_strong"):
-        generate_paper_master(7, 1024, np.random.default_rng(0))
+    with np.testing.assert_raises_regex(NotImplementedError, "sine_high_noise"):
+        generate_paper_master(17, 1024, np.random.default_rng(0))
 
 
 def test_trend_regimes_follow_documented_randomization() -> None:
@@ -256,3 +257,45 @@ def test_sparse_pulses_follow_documented_local_policy() -> None:
     assert np.array_equal(actual, expected)
     assert set(np.unique(actual)) <= {0.0, PAPER_PULSE_AMPLITUDE}
     assert np.count_nonzero(actual) <= PAPER_PULSE_COUNT * width
+
+
+def test_arma_regimes_match_published_recursions() -> None:
+    length = 128
+    for regime_id, (ar_coefficients, ma_coefficients) in PAPER_ARMA_COEFFICIENTS.items():
+        expected_rng = np.random.default_rng(79)
+        innovations = expected_rng.standard_normal(length)
+        expected = np.zeros(length)
+
+        for index in range(length):
+            ar_term = sum(
+                coefficient * expected[index - lag]
+                for lag, coefficient in enumerate(ar_coefficients, start=1)
+                if index >= lag
+            )
+            ma_term = sum(
+                coefficient * innovations[index - lag]
+                for lag, coefficient in enumerate(ma_coefficients, start=1)
+                if index >= lag
+            )
+            expected[index] = innovations[index] + ar_term + ma_term
+
+        actual = generate_paper_master(regime_id, length, np.random.default_rng(79))
+
+        assert np.allclose(actual, expected, atol=1e-6)
+
+
+def test_ar_regimes_have_expected_empirical_lag_one_correlation() -> None:
+    length = 50_000
+    for regime_id, coefficient in ((7, 0.9), (8, 0.3), (9, -0.7)):
+        signal = generate_paper_master(regime_id, length, np.random.default_rng(regime_id))
+        lag_one_correlation = np.corrcoef(signal[:-1], signal[1:])[0, 1]
+
+        assert np.isclose(lag_one_correlation, coefficient, atol=0.02)
+
+
+def test_ma_regime_has_expected_empirical_lag_one_correlation() -> None:
+    signal = generate_paper_master(10, 50_000, np.random.default_rng(10))
+    lag_one_correlation = np.corrcoef(signal[:-1], signal[1:])[0, 1]
+    expected = 0.7 / (1.0 + 0.7**2)
+
+    assert np.isclose(lag_one_correlation, expected, atol=0.02)

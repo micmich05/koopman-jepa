@@ -25,3 +25,9 @@ generator_assumptions:
   pulse_shape: positive_rectangle
   pulse_start_sampling: uniform_without_replacement
   pulse_overlap: allowed
+  arma_innovation_distribution: standard_normal
+  arma_innovation_scale: 1.0
+  arma_burnin: 0
+  arma_initial_state: scipy_lfilter_zero_state
+  arma_ar_polynomial_convention: one_then_negative_coefficients
+  arma_ma_polynomial_convention: one_then_positive_coefficients
