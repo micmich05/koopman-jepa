@@ -1075,13 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the prepared validation-only post-hoc diagnostic, then run it
-without changes. It retains the minimum-loss checkpoint for every one-hidden
-MLP seed without using the local effective-rank threshold for selection and
-measures the already frozen multi-state K-means metrics on all five seeds. This
-cannot change the formal one-hidden result, authorize a test run, or be
-presented as a preregistered pass; its sole purpose is to learn whether the rank
-guard hides clustering signal.
+Freeze the next architecture sensitivity by changing only the encoder from the
+main-text `direct` projection (`6144 -> 32`) to the reconciled appendix reading
+`two_stage` (`6144 -> 64 -> 32`). Keep the one-hidden predictor, fresh data,
+seeds, optimizer, checkpoint policy, and clustering aggregation unchanged.
+Commit the protocol before execution and do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1195,8 +1193,18 @@ again localized to a predictive low-rank solution. The selected-seed loss-ratio
 CV was also `0.318` against the local maximum `0.25`. K-means and test were not
 run.
 
-The unexecuted diagnostic notebook
+The executed diagnostic notebook
 `notebooks/paper_mlp_one_hidden_clustering_diagnostic.ipynb` makes the post-hoc
 selection change explicit by setting the selection-only rank floor to `1.0`.
 All clustering settings remain frozen, and a source test prevents construction
 of the test split.
+
+The diagnostic result is a stable but insufficient clustering level. Overall
+mean validation purity is `50.76%`, compared with the local `60%` development
+floor and the paper's descriptive `65.48%`. Per-seed means range from `47.60%`
+to `53.59%`, so all five miss the local per-seed floor of `55%`. Seed-mean CV is
+`0.049` and the worst within-seed K-means standard deviation is `1.35%`; both
+stability criteria pass. Seed 11, despite effective rank `2.10`, has the
+second-highest purity at `52.62%`, while seed 12 has rank `7.66` and the lowest
+purity at `47.60%`. The rank guard therefore did not conceal a successful
+clustering reproduction. Test remains untouched.

@@ -28,7 +28,7 @@ def test_one_hidden_notebook_is_executed_and_never_constructs_test() -> None:
     )
 
 
-def test_one_hidden_clustering_diagnostic_is_validation_only_and_unexecuted() -> None:
+def test_one_hidden_clustering_diagnostic_is_validation_only_and_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -46,5 +46,9 @@ def test_one_hidden_clustering_diagnostic_is_validation_only_and_unexecuted() ->
     assert 'PaperRegimeDataset(config.data, "test"' not in source
     assert "min_validation_effective_rank=1.0" in source
     assert "evaluate_paper_mlp_seed_clustering" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )

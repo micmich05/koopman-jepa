@@ -146,9 +146,14 @@ ya fue ejecutado. Mejoró de 3/5 a 4/5 checkpoints elegibles, pero seed 11
 quedó en rango efectivo `2.10` pese a reducir el error a `0.8%` del inicial; el
 gate predictivo continuó en `FAIL` y clustering fue omitido. El próximo paso es
 un diagnóstico post-hoc de pureza en validation usando el checkpoint de mínimo
-error de cada seed; no habilita test ni cambia el fallo formal. Está preparado,
-todavía sin ejecutar, en
+error de cada seed; no habilita test ni cambia el fallo formal. Está ejecutado en
 [`paper_mlp_one_hidden_clustering_diagnostic.ipynb`](notebooks/paper_mlp_one_hidden_clustering_diagnostic.ipynb).
+El diagnóstico ya ejecutado obtiene pureza global `50.76%` (rango por seed
+`47.60–53.59%`), lejos del `60%` local y del `65.48%` publicado. La variación es
+baja (CV entre seeds `0.049`, peor sd de K-means `1.35%`), por lo que no parece
+un accidente de inicialización. Seed 11, aun con rango efectivo `2.10`, es la
+segunda mejor en pureza (`52.62%`): el filtro de rango no ocultaba una
+reproducción exitosa.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
