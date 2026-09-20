@@ -9,6 +9,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from .paper_config import (
+    PaperCheckpointReplayConfig,
     PaperOptimizationConfig,
     PaperOverfitGateConfig,
     PaperScaleInvariantStabilityGateConfig,
@@ -97,6 +98,26 @@ class PaperCheckpointSelection:
     validation_embedding_std: float
     validation_embedding_std_ratio: float
     validation_effective_rank: float
+
+
+@dataclass(frozen=True, slots=True)
+class PaperCheckpointRun:
+    history: list[PaperEpochMetrics]
+    selection: PaperCheckpointSelection | None
+    selected_state_dict: dict[str, torch.Tensor] | None
+
+
+@dataclass(frozen=True, slots=True)
+class PaperCheckpointReplayResult:
+    checkpoint_present: bool
+    expected_epoch_matches: bool
+    state_keys_match: bool
+    all_finite: bool
+    validation_loss_absolute_error: float
+    validation_embedding_std_absolute_error: float
+    validation_effective_rank_absolute_error: float
+    metrics_match: bool
+    passed: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -392,13 +413,22 @@ def _epoch_metrics(
     )
 
 
-def run_paper_train_validation(
+def _clone_model_state(model: PaperTemporalJEPA) -> dict[str, torch.Tensor]:
+    return {
+        name: tensor.detach().cpu().clone()
+        for name, tensor in model.state_dict().items()
+    }
+
+
+def _run_paper_train_validation(
     model: PaperTemporalJEPA,
     train_dataset: PaperDataset,
     validation_dataset: PaperDataset,
     config: PaperTrainConfig,
-) -> list[PaperEpochMetrics]:
-    """Run a deterministic local train/validation development condition."""
+    *,
+    capture_epoch_states: bool,
+) -> tuple[list[PaperEpochMetrics], dict[int, dict[str, torch.Tensor]]]:
+    """Run the shared training loop and optionally snapshot trained epochs."""
 
     config.validate()
     device = torch.device(config.device)
@@ -419,6 +449,7 @@ def run_paper_train_validation(
             predictor_gradient_norm=0.0,
         )
     ]
+    epoch_states: dict[int, dict[str, torch.Tensor]] = {}
 
     for epoch in range(1, config.epochs + 1):
         gradient_sample_count = 0
@@ -435,17 +466,63 @@ def run_paper_train_validation(
 
         train_evaluation = evaluate_paper_model(model, train_evaluation_loader, device)
         validation_evaluation = evaluate_paper_model(model, validation_loader, device)
-        history.append(
-            _epoch_metrics(
-                epoch,
-                train_evaluation,
-                validation_evaluation,
-                online_gradient_norm=online_gradient_total / gradient_sample_count,
-                predictor_gradient_norm=predictor_gradient_total / gradient_sample_count,
-            )
+        metrics = _epoch_metrics(
+            epoch,
+            train_evaluation,
+            validation_evaluation,
+            online_gradient_norm=online_gradient_total / gradient_sample_count,
+            predictor_gradient_norm=predictor_gradient_total / gradient_sample_count,
         )
+        history.append(metrics)
+        if capture_epoch_states:
+            epoch_states[epoch] = _clone_model_state(model)
 
+    return history, epoch_states
+
+
+def run_paper_train_validation(
+    model: PaperTemporalJEPA,
+    train_dataset: PaperDataset,
+    validation_dataset: PaperDataset,
+    config: PaperTrainConfig,
+) -> list[PaperEpochMetrics]:
+    """Run a deterministic local train/validation development condition."""
+
+    history, _ = _run_paper_train_validation(
+        model,
+        train_dataset,
+        validation_dataset,
+        config,
+        capture_epoch_states=False,
+    )
     return history
+
+
+def run_paper_train_validation_with_checkpoint(
+    model: PaperTemporalJEPA,
+    train_dataset: PaperDataset,
+    validation_dataset: PaperDataset,
+    train_config: PaperTrainConfig,
+    checkpoint_config: PaperValidationGateConfig,
+) -> PaperCheckpointRun:
+    """Train and retain the exact state of the constraint-selected epoch."""
+
+    history, epoch_states = _run_paper_train_validation(
+        model,
+        train_dataset,
+        validation_dataset,
+        train_config,
+        capture_epoch_states=True,
+    )
+    selection = select_validation_checkpoint(history, checkpoint_config)
+    selected_state_dict = (
+        None if selection is None else epoch_states[selection.epoch]
+    )
+    return PaperCheckpointRun(
+        history=history,
+        selection=selection,
+        selected_state_dict=selected_state_dict,
+    )
 
 
 def evaluate_validation_gate(
@@ -580,6 +657,104 @@ def select_validation_checkpoint(
     if not candidates:
         return None
     return min(candidates, key=lambda candidate: (candidate.validation_loss, candidate.epoch))
+
+
+def verify_paper_checkpoint_replay(
+    model: PaperTemporalJEPA,
+    checkpoint_run: PaperCheckpointRun,
+    validation_dataset: PaperDataset,
+    train_config: PaperTrainConfig,
+    replay_config: PaperCheckpointReplayConfig,
+    *,
+    expected_epoch: int,
+) -> PaperCheckpointReplayResult:
+    """Load a captured checkpoint and verify its held-out precondition on validation."""
+
+    train_config.validate()
+    replay_config.validate()
+    if expected_epoch < 1:
+        raise ValueError("expected_epoch must be positive")
+
+    selection = checkpoint_run.selection
+    selected_state_dict = checkpoint_run.selected_state_dict
+    checkpoint_present = selection is not None and selected_state_dict is not None
+    expected_epoch_matches = bool(
+        selection is not None and selection.epoch == expected_epoch
+    )
+    expected_keys = set(model.state_dict())
+    observed_keys = set(selected_state_dict or {})
+    state_keys_match = checkpoint_present and observed_keys == expected_keys
+
+    if not state_keys_match or selection is None or selected_state_dict is None:
+        return PaperCheckpointReplayResult(
+            checkpoint_present=checkpoint_present,
+            expected_epoch_matches=expected_epoch_matches,
+            state_keys_match=state_keys_match,
+            all_finite=False,
+            validation_loss_absolute_error=math.inf,
+            validation_embedding_std_absolute_error=math.inf,
+            validation_effective_rank_absolute_error=math.inf,
+            metrics_match=False,
+            passed=False,
+        )
+
+    device = torch.device(train_config.device)
+    model.load_state_dict(selected_state_dict, strict=True)
+    model.to(device)
+    validation_loader = make_paper_loader(
+        validation_dataset,
+        train_config,
+        shuffle=False,
+    )
+    replayed = evaluate_paper_model(model, validation_loader, device)
+    compared_values = (
+        selection.validation_loss,
+        selection.validation_embedding_std,
+        selection.validation_effective_rank,
+        replayed.loss,
+        replayed.embedding_std_mean,
+        replayed.effective_rank,
+    )
+    all_finite = all(math.isfinite(value) for value in compared_values)
+    validation_loss_absolute_error = abs(
+        replayed.loss - selection.validation_loss
+    )
+    validation_embedding_std_absolute_error = abs(
+        replayed.embedding_std_mean - selection.validation_embedding_std
+    )
+    validation_effective_rank_absolute_error = abs(
+        replayed.effective_rank - selection.validation_effective_rank
+    )
+    tolerance = replay_config.metric_absolute_tolerance
+    metrics_match = all(
+        error <= tolerance
+        for error in (
+            validation_loss_absolute_error,
+            validation_embedding_std_absolute_error,
+            validation_effective_rank_absolute_error,
+        )
+    )
+    return PaperCheckpointReplayResult(
+        checkpoint_present=checkpoint_present,
+        expected_epoch_matches=expected_epoch_matches,
+        state_keys_match=state_keys_match,
+        all_finite=all_finite,
+        validation_loss_absolute_error=validation_loss_absolute_error,
+        validation_embedding_std_absolute_error=(
+            validation_embedding_std_absolute_error
+        ),
+        validation_effective_rank_absolute_error=(
+            validation_effective_rank_absolute_error
+        ),
+        metrics_match=metrics_match,
+        passed=(
+            checkpoint_present
+            and expected_epoch_matches
+            and state_keys_match
+            and all_finite
+            and metrics_match
+        ),
+    )
 
 
 def summarize_seed_checkpoint(

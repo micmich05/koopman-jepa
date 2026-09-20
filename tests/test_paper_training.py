@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import TensorDataset
 
 from koopman_jepa.paper_config import (
+    PaperCheckpointReplayConfig,
     PaperOptimizationConfig,
     PaperOverfitGateConfig,
     PaperScaleInvariantStabilityGateConfig,
@@ -27,9 +28,11 @@ from koopman_jepa.paper_training import (
     paper_train_step,
     paper_trainable_parameters,
     run_paper_train_validation,
+    run_paper_train_validation_with_checkpoint,
     select_validation_checkpoint,
     squared_embedding_error,
     summarize_seed_checkpoint,
+    verify_paper_checkpoint_replay,
 )
 
 
@@ -196,6 +199,106 @@ def test_train_validation_runner_records_untrained_and_trained_epochs() -> None:
     assert all(math.isfinite(row.train_loss) for row in history)
     assert all(math.isfinite(row.validation_loss) for row in history)
     assert all(parameter.grad is None for parameter in model.target_encoder.parameters())
+
+
+def test_checkpoint_runner_preserves_existing_training_history() -> None:
+    torch.manual_seed(29)
+    context = torch.randn(12, 1, 768)
+    target = torch.randn(12, 1, 768)
+    dataset = TensorDataset(context, target, torch.arange(12))
+    config = PaperTrainConfig(batch_size=6, epochs=1, learning_rate=1e-4, seed=29)
+
+    torch.manual_seed(31)
+    original_model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
+    original_history = run_paper_train_validation(
+        original_model,
+        dataset,
+        dataset,
+        config,
+    )
+
+    torch.manual_seed(31)
+    checkpoint_model = PaperTemporalJEPA(PaperModelConfig(latent_dim=4))
+    checkpoint_run = run_paper_train_validation_with_checkpoint(
+        checkpoint_model,
+        dataset,
+        dataset,
+        config,
+        PaperValidationGateConfig(min_validation_effective_rank=1.0),
+    )
+
+    assert checkpoint_run.history == original_history
+
+
+def test_captured_checkpoint_replays_validation_metrics() -> None:
+    torch.manual_seed(37)
+    context = torch.randn(12, 1, 768)
+    dataset = TensorDataset(context, context.clone(), torch.arange(12))
+    model_config = PaperModelConfig(latent_dim=4)
+    train_config = PaperTrainConfig(
+        batch_size=6,
+        epochs=1,
+        learning_rate=1e-12,
+        seed=37,
+    )
+    checkpoint_config = PaperValidationGateConfig(
+        min_validation_effective_rank=1.0,
+    )
+    replay_config = PaperCheckpointReplayConfig(expected_epochs=(1,))
+    model = PaperTemporalJEPA(model_config)
+
+    checkpoint_run = run_paper_train_validation_with_checkpoint(
+        model,
+        dataset,
+        dataset,
+        train_config,
+        checkpoint_config,
+    )
+
+    assert checkpoint_run.selection is not None
+    assert checkpoint_run.selection.epoch == 1
+    assert checkpoint_run.selected_state_dict is not None
+    assert any(
+        name.startswith("online_encoder.")
+        for name in checkpoint_run.selected_state_dict
+    )
+    assert any(
+        name.startswith("target_encoder.")
+        for name in checkpoint_run.selected_state_dict
+    )
+    assert any(name.startswith("predictor.") for name in checkpoint_run.selected_state_dict)
+
+    with torch.no_grad():
+        for parameter in model.parameters():
+            parameter.add_(1.0)
+    replay = verify_paper_checkpoint_replay(
+        model,
+        checkpoint_run,
+        dataset,
+        train_config,
+        replay_config,
+        expected_epoch=1,
+    )
+    wrong_epoch = verify_paper_checkpoint_replay(
+        PaperTemporalJEPA(model_config),
+        checkpoint_run,
+        dataset,
+        train_config,
+        replay_config,
+        expected_epoch=2,
+    )
+
+    assert replay.passed
+    assert replay.checkpoint_present
+    assert replay.expected_epoch_matches
+    assert replay.state_keys_match
+    assert replay.metrics_match
+    assert replay.validation_loss_absolute_error <= 1e-8
+    assert replay.validation_embedding_std_absolute_error <= 1e-8
+    assert replay.validation_effective_rank_absolute_error <= 1e-8
+    assert not wrong_epoch.passed
+    assert not wrong_epoch.expected_epoch_matches
+    assert wrong_epoch.metrics_match
 
 
 def test_validation_gate_checks_improvement_gap_and_collapse() -> None:

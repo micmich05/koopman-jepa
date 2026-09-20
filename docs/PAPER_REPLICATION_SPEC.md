@@ -642,6 +642,14 @@ implementation must verify all of the following:
 Failure of any replay check aborts the held-out run. It does not trigger a new
 checkpoint choice.
 
+Checkpoint capture and replay are implemented in
+`src/koopman_jepa/paper_training.py`. The shared training loop snapshots the
+complete model state after each trained epoch, retains only the state selected
+by the existing validation constraints, reloads it strictly, and recomputes
+validation diagnostics. Unit tests also verify that enabling capture does not
+alter the original training history and that a wrong expected epoch fails the
+replay gate. This implementation does not construct a test dataset.
+
 For each verified checkpoint, test contexts are embedded by the online
 encoder. K-means is fitted to those raw 32-dimensional embeddings with
 `K = 18`, `n_init = 20`, and `random_state = 0`. Test labels are not used to
@@ -811,7 +819,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test deterministic checkpoint capture/replay plus the
-linear-operator metrics defined by the frozen held-out protocol. Do not
-instantiate test until that implementation and an unexecuted notebook are
-committed. Keep the reduced Phase 0 pipeline unchanged.
+Implement and unit-test the linear-operator metrics defined by the frozen
+held-out protocol, then prepare an unexecuted notebook that aborts unless all
+checkpoint replay checks pass before constructing test. Do not instantiate
+test until both pieces are committed. Keep the reduced Phase 0 pipeline
+unchanged.

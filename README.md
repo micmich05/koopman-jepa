@@ -64,8 +64,9 @@ los controles de brecha, dispersión y rango pasan. Esto habilita diseñar y
 congelar la evaluación held-out. El protocolo lineal-identidad ya está fijado
 en
 [`paper_linear_identity_heldout_smoke.yaml`](configs/paper_linear_identity_heldout_smoke.yaml),
-pero todavía no fue implementado ni ejecutado: test continúa cerrado. Este
-smoke test todavía no reproduce los resultados del paper.
+y la captura/reproducción exacta del checkpoint ya está implementada y cubierta
+por tests. Faltan las métricas del operador y el notebook no ejecutado antes de
+consultar test. Este smoke test todavía no reproduce los resultados del paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
