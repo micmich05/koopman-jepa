@@ -738,7 +738,7 @@ masters per regime, the paper does not report seed dispersion, and the active
 spectral-rank definition is underspecified. This test split is now consumed for
 the frozen smoke protocol.
 
-### Frozen randomly initialized linear control (not yet executed)
+### Executed randomly initialized linear development control
 
 `configs/paper_linear_random_control_smoke.yaml` freezes the paired control for
 the paper's claim that random predictor initialization reaches similarly low
@@ -786,8 +786,8 @@ held-out data. Every random checkpoint must have:
 
 These are local operational definitions of the paper's qualitative words
 “non-identity” and “dense”; the authors report no corresponding thresholds.
-Passing this development protocol will freeze the random checkpoints before
-any paired evaluation on the already-consumed smoke test. Such a later
+Passing this development protocol freezes the random checkpoints before any
+paired evaluation on the already-consumed smoke test. Such a later
 comparison can still test the predeclared control, but it will not constitute a
 second independently blind use of that split.
 
@@ -799,18 +799,50 @@ requires exact seed coverage, finite values, predictive comparability,
 non-identity structure, and density simultaneously. Synthetic tests verify
 that the relative-improvement gate is unaffected by a fourfold absolute-loss
 difference, that an identity matrix fails both structural controls, and that
-missing seeds or non-finite matrices cannot pass. No random-control training or
-held-out evaluation has been run.
+missing seeds or non-finite matrices cannot pass.
 
-The unexecuted notebook
+The executed notebook
 `notebooks/paper_linear_random_control_smoke.ipynb` implements the paired
 development run. It first reproduces all five identity checkpoints, stores
 their pre-training online and target encoder states, resets each seed, and
 requires exact equality with the corresponding Xavier model before training.
 It then captures and reloads the random checkpoint selected by the unchanged
 validation constraints, evaluates both gates, plots all trajectories and
-paired diagnostics, and generates a written interpretation. The notebook has
-no test-dataset construction, execution counts, or outputs.
+paired diagnostics, and generates a written interpretation. It has no
+test-dataset construction and did not instantiate or consult test.
+
+All five identity replays and all five random checkpoint replays pass. Initial
+online and target encoder tensors are exactly paired for every seed. The random
+condition selects epoch 10 for seeds `5–9`.
+
+| Seed | Val/base | Val/train | Std/base | Rank | q random/identity | Absolute loss factor | Identity error | Off-diagonal |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 5 | 0.041 | 1.602 | 0.704 | 18.29 | 0.151 | 1.291 | 142.03% | 98.94% |
+| 6 | 0.045 | 1.784 | 0.810 | 15.23 | 0.133 | 1.141 | 138.38% | 98.62% |
+| 7 | 0.061 | 2.019 | 0.769 | 18.48 | 0.204 | 1.165 | 142.70% | 98.55% |
+| 8 | 0.042 | 2.059 | 0.862 | 12.29 | 0.229 | 1.129 | 140.61% | 98.20% |
+| 9 | 0.034 | 1.992 | 0.826 | 14.78 | 0.180 | 1.253 | 140.87% | 98.52% |
+
+Both frozen development gates pass. The validation/baseline CV is `0.204`
+against the `0.25` maximum; the worst validation/baseline ratio is `0.061`, the
+worst validation/train ratio is `2.059`, the minimum dispersion retention is
+`0.704`, and the minimum effective rank is `12.29`. No collapse criterion is
+close to failing.
+
+Every paired relative-improvement factor is below one, with a worst value of
+`0.229` against the `2.0` cutoff. This means the Xavier condition reduces loss
+more strongly relative to its own epoch-0 baseline. It does **not** mean that
+its selected absolute validation loss is lower: the random/identity absolute
+factor ranges from `1.129` to `1.291`. That difference is consistent with the
+two independently learned latent coordinate systems having different scales,
+which is why the absolute comparison was predeclared as diagnostic only.
+
+The structural treatment check is unambiguous: minimum relative distance to
+identity is `138.4%` and minimum off-diagonal norm fraction is `98.2%`, both far
+past their `50%` thresholds. Thus low normalized predictive error is compatible
+in development with a dense non-identity operator. This supports the paper's
+qualitative basis-selection mechanism, but still supplies no held-out evidence
+for the random control and no full-scale numerical reproduction.
 
 ## Training details absent from the paper
 
@@ -946,8 +978,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Execute the committed paired development notebook without changing its code or
-configuration. Keep test uninstantiated. Commit and interpret the result
-whether PASS or FAIL; only a PASS permits freezing the selected random epochs
-for a later comparison on the already-consumed smoke split. Keep the reduced
-Phase 0 pipeline unchanged.
+Freeze the random selected epochs `(10, 10, 10, 10, 10)` in a separate paired
+held-out-control protocol before running it. Reproduce both identity and random
+checkpoints exactly before constructing test, then compare their clustering,
+operator structure, and non-collapse metrics on the already-consumed smoke
+split. Report explicitly that this is a predeclared comparison but not a second
+independently blind use of test. Keep the reduced Phase 0 pipeline unchanged.

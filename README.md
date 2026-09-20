@@ -76,14 +76,23 @@ centroides 1.957%, mínimo 31 autovalores cerca de 1 y rango efectivo mínimo
 consumido para este protocolo. Este smoke test todavía no reproduce la escala
 ni todos los experimentos del paper.
 
-El siguiente control pareado ya está congelado en
+El siguiente control pareado fue congelado y ejecutado en
 [`paper_linear_random_control_smoke.yaml`](configs/paper_linear_random_control_smoke.yaml):
 repite seeds 5–9 con encoder y minibatches idénticos, cambiando únicamente
-`M_0` de identidad a Xavier uniforme. Sus métricas pareadas y controles de
-estructura ya están implementados y cubiertos por tests. Todavía no fue
-ejecutado. El notebook train/validation está preparado sin outputs en
+`M_0` de identidad a Xavier uniforme. El notebook train/validation ejecutado
 [`paper_linear_random_control_smoke.ipynb`](notebooks/paper_linear_random_control_smoke.ipynb)
-y no contiene ninguna construcción de test.
+reprodujo exactamente los cinco checkpoints identidad, verificó igualdad
+exacta de los encoders iniciales entre condiciones y seleccionó epoch 10 para
+las cinco corridas Xavier. El gate de desarrollo pasó: CV relativo 0.204,
+peor validation/baseline 0.061, peor brecha validation/train 2.059, rango
+efectivo mínimo 12.29 y retención de dispersión mínima 0.704. Frente a
+identidad, el peor factor de mejora relativa fue 0.229, aunque la loss absoluta
+random fue entre 1.129x y 1.291x mayor. Las matrices random quedaron lejos de
+identidad (error relativo mínimo 138.4%) y densas (fracción off-diagonal mínima
+98.2%). Test no fue construido ni consultado. El resultado permite congelar
+estos epochs para una comparación posterior sobre el test smoke ya consumido;
+no constituye todavía evidencia held-out del control ni una reproducción a
+escala completa.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
