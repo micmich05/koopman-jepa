@@ -620,7 +620,7 @@ does not prove that the latent coordinate system itself is stable, does not
 measure dataset-sampling variability, and does not reproduce the paper's
 clustering or operator diagnostics. Test was not instantiated or consulted.
 
-### Frozen linear-identity held-out protocol (not yet executed)
+### Executed linear-identity held-out protocol
 
 `configs/paper_linear_identity_heldout_smoke.yaml` freezes the first held-out
 evaluation before any test sample is instantiated. This is a local smoke
@@ -692,9 +692,10 @@ matrix in the same column-vector convention as the equations (`M c`), which is
 matches the entropy-of-squared-singular-values definition used during
 training. Synthetic unit tests cover the exact identity, a nonsymmetric matrix
 with closed-form norms, missing and failed seeds, non-finite metrics, and input
-shape validation. No held-out embedding has been computed.
+shape validation. These tests were completed before any held-out embedding was
+computed.
 
-The unexecuted notebook
+The executed notebook
 `notebooks/paper_linear_identity_heldout_smoke.ipynb` implements the complete
 control flow. It constructs only train and validation first, reproduces all
 five checkpoints, and sets the held-out authorization flag only when every
@@ -702,7 +703,40 @@ replay result passes. The later test-construction cell asserts that flag before
 instantiating `PaperRegimeDataset(..., "test", ...)`. Its result section is
 already parameterized to report every gate, failed seed, per-seed plot,
 spectral plot, mean and dispersion, and the limitations of the small sample.
-The notebook has no execution counts or outputs yet.
+
+All five checkpoint replays pass before test construction. The selected epochs
+match `(10, 10, 10, 8, 10)`, and every replayed validation loss, embedding
+dispersion, and effective rank matches its captured value with absolute error
+zero. The 144 test samples are disjoint from train and validation.
+
+| Seed | Identity error | Skew norm | Centroid action | Eigenvalues near 1 | Test rank |
+|---:|---:|---:|---:|---:|---:|
+| 5 | 1.4006% | 0.6868% | 1.1804% | 31 | 21.221 |
+| 6 | 1.6948% | 0.6027% | 1.9567% | 31 | 20.133 |
+| 7 | 1.8526% | 0.7399% | 0.6499% | 31 | 21.324 |
+| 8 | 1.4427% | 0.6415% | 1.1865% | 31 | 17.963 |
+| 9 | 1.5166% | 0.6545% | 0.8075% | 31 | 18.645 |
+
+The aggregate held-out gate passes every frozen criterion for every seed. The
+closest result is seed 6 centroid action at `1.9567%`, only `0.0433` percentage
+points below the `2%` cutoff. Identity, skew, rank, and the local spectral count
+have substantially larger margins.
+
+The spectral plot shows 31 of 32 eigenvalues inside the `0.05` disk around 1
+for every seed, plus one real outlier around `0.90–0.93`. This exceeds the local
+minimum of 18 but does not establish the paper's claimed structure of 18
+dominant invariant modes. In this short identity-initialized smoke condition,
+31 near-identity modes may also indicate that most of the full predictor has
+barely moved from initialization.
+
+Across seeds, population mean ± standard deviation is `1.581% ± 0.169%` for
+identity error, `0.665% ± 0.046%` for skew norm, `1.156% ± 0.452%` for centroid
+action, and `19.86 ± 1.35` for test effective rank. These results qualitatively
+support near-identity action without representation collapse. They are not a
+formal numerical reproduction because the smoke test uses only 8 held-out
+masters per regime, the paper does not report seed dispersion, and the active
+spectral-rank definition is underspecified. This test split is now consumed for
+the frozen smoke protocol.
 
 ## Training details absent from the paper
 
@@ -838,9 +872,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Execute the committed held-out notebook without changing its code or frozen
-configuration. If checkpoint replay aborts, leave test unopened and diagnose
-only train/validation. If replay passes, record the first and only smoke-test
-evaluation under this protocol, visually audit every figure, and commit the
-unaltered result whether PASS or FAIL. Keep the reduced Phase 0 pipeline
-unchanged.
+Freeze the next experiment before running it. The nearest paper control is the
+randomly initialized linear predictor, but reusing this now-consumed smoke test
+would make that comparison confirmatory only with respect to a newly frozen
+control protocol, not independently blind. Alternatively, scale the identity
+condition to the published dataset size before opening a fresh paper-scale test
+split. Keep the reduced Phase 0 pipeline unchanged.

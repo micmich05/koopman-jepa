@@ -67,9 +67,14 @@ en
 y la captura/reproducción exacta del checkpoint ya está implementada y cubierta
 por tests. Las métricas del operador y el gate conjunto también están
 implementados y validados con casos sintéticos. El notebook de evaluación ya
-está preparado y revisado, todavía sin outputs, en
+fue ejecutado en
 [`paper_linear_identity_heldout_smoke.ipynb`](notebooks/paper_linear_identity_heldout_smoke.ipynb).
-Este smoke test todavía no reproduce los resultados del paper.
+Los cinco replays fueron exactos y el gate held-out pasó en las cinco seeds:
+peor error a identidad 1.853%, peor antisimetría 0.740%, peor acción sobre
+centroides 1.957%, mínimo 31 autovalores cerca de 1 y rango efectivo mínimo
+17.963. La acción sobre centroides pasa por margen estrecho y test queda
+consumido para este protocolo. Este smoke test todavía no reproduce la escala
+ni todos los experimentos del paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
