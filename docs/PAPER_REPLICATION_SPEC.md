@@ -1075,11 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze a separate one-hidden-layer MLP sensitivity that changes only
-`mlp_depth` from `two_hidden` to `one_hidden`. Keep the same fresh data, model
-seeds, optimizer, epochs, predictive checkpoint gates, and clustering gates.
-Commit that protocol before execution, continue to avoid test construction,
-and keep the consumed linear result unchanged.
+Prepare an unexecuted notebook for the frozen one-hidden-layer MLP sensitivity.
+It changes only `mlp_depth` from `two_hidden` to `one_hidden`; the fresh data,
+model seeds, optimizer, epochs, predictive checkpoint gates, and clustering
+gates remain byte-for-byte equivalent at the configuration level. Commit the
+notebook before execution, continue to avoid test construction, and keep the
+consumed linear result unchanged.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1176,3 +1177,8 @@ epochs 4–5 and then rise while embedding scale grows rapidly, so simply adding
 epochs is not the next planned response. The next clean development sensitivity
 uses the contradictory prose reading of the published predictor,
 `32 -> 64 -> 32`, while retaining every other frozen choice and the rank gate.
+
+That sensitivity is now frozen in
+`configs/paper_mlp_one_hidden_development.yaml`. A configuration-level test
+compares its parsed dataclass against the primary condition and requires exact
+equality after replacing only `model.mlp_depth`. It has not yet been executed.

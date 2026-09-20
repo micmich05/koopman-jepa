@@ -137,8 +137,10 @@ seleccionaron épocas 5, 4 y 5, mientras que seeds 11 y 12 no alcanzaron el rang
 efectivo mínimo `4.0` (mejores valores `2.71` y `3.48`). Predicción, brecha y
 dispersión sí pasaron. Para no sesgar el resultado, K-means fue omitido en vez de
 medirse sólo sobre las tres seeds aceptadas. Test no fue construido ni
-consultado. La próxima condición propuesta cambia únicamente el predictor a la
-lectura de una capa oculta `32→64→32`; no relaja el gate observado.
+consultado. La próxima condición ya está congelada en
+[`paper_mlp_one_hidden_development.yaml`](configs/paper_mlp_one_hidden_development.yaml):
+cambia únicamente el predictor a la lectura de una capa oculta `32→64→32`; no
+relaja el gate observado y todavía no fue ejecutada.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

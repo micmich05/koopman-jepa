@@ -10,6 +10,7 @@ from koopman_jepa.paper_config import (
     load_paper_linear_random_control_config,
     load_paper_linear_random_heldout_config,
     load_paper_mlp_clustering_development_config,
+    load_paper_mlp_one_hidden_development_config,
     load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
@@ -266,4 +267,30 @@ def test_mlp_clustering_development_rejects_linear_predictor() -> None:
     )
 
     with np.testing.assert_raises_regex(ValueError, "requires an MLP predictor"):
+        invalid.validate()
+
+
+def test_mlp_one_hidden_sensitivity_changes_only_predictor_depth() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    primary = load_paper_mlp_clustering_development_config(
+        config_dir / "paper_mlp_clustering_development.yaml"
+    )
+    sensitivity = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_one_hidden_development.yaml"
+    )
+
+    assert sensitivity.data == primary.data
+    assert sensitivity.model == replace(primary.model, mlp_depth="one_hidden")
+    assert sensitivity.train == primary.train
+    assert sensitivity.checkpoint_gate == primary.checkpoint_gate
+    assert sensitivity.sweep == primary.sweep
+    assert sensitivity.stability_gate == primary.stability_gate
+    assert sensitivity.clustering == primary.clustering
+    assert sensitivity.clustering_gate == primary.clustering_gate
+
+    invalid = replace(
+        sensitivity,
+        model=replace(sensitivity.model, mlp_depth="two_hidden"),
+    )
+    with np.testing.assert_raises_regex(ValueError, "exactly one hidden layer"):
         invalid.validate()

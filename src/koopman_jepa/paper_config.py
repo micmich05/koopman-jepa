@@ -536,7 +536,7 @@ class PaperMLPClusteringDevelopmentConfig:
     clustering: PaperKMeansSweepConfig
     clustering_gate: PaperMLPClusteringGateConfig
 
-    def validate(self) -> None:
+    def _validate_common(self) -> None:
         self.data.validate()
         self.model.validate()
         self.train.validate()
@@ -547,10 +547,6 @@ class PaperMLPClusteringDevelopmentConfig:
         self.clustering_gate.validate()
         if self.model.predictor_kind != "mlp":
             raise ValueError("MLP clustering development requires an MLP predictor")
-        if self.model.mlp_depth != "two_hidden":
-            raise ValueError(
-                "primary MLP clustering development requires two hidden layers"
-            )
         if self.checkpoint_gate.final_window > self.train.epochs:
             raise ValueError("final_window must not exceed training epochs")
         validation_samples = (
@@ -558,6 +554,22 @@ class PaperMLPClusteringDevelopmentConfig:
         )
         if validation_samples < self.clustering.clusters:
             raise ValueError("validation split must cover all configured clusters")
+
+    def validate(self) -> None:
+        self._validate_common()
+        if self.model.mlp_depth != "two_hidden":
+            raise ValueError(
+                "primary MLP clustering development requires two hidden layers"
+            )
+
+
+class PaperMLPOneHiddenDevelopmentConfig(PaperMLPClusteringDevelopmentConfig):
+    def validate(self) -> None:
+        self._validate_common()
+        if self.model.mlp_depth != "one_hidden":
+            raise ValueError(
+                "one-hidden MLP development requires exactly one hidden layer"
+            )
 
 
 def load_paper_experiment_config(path: str | Path) -> PaperExperimentConfig:
@@ -744,6 +756,37 @@ def load_paper_mlp_clustering_development_config(
         "random_states": tuple(random_states),
     }
     config = PaperMLPClusteringDevelopmentConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        stability_gate=PaperScaleInvariantStabilityGateConfig(
+            **raw.get("stability_gate", {})
+        ),
+        clustering=PaperKMeansSweepConfig(**clustering_values),
+        clustering_gate=PaperMLPClusteringGateConfig(
+            **raw.get("clustering_gate", {})
+        ),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_mlp_one_hidden_development_config(
+    path: str | Path,
+) -> PaperMLPOneHiddenDevelopmentConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (10, 11, 12, 13, 14))
+    clustering_raw = raw.get("clustering", {})
+    random_states = clustering_raw.get("random_states", tuple(range(20)))
+    clustering_values = {
+        **clustering_raw,
+        "random_states": tuple(random_states),
+    }
+    config = PaperMLPOneHiddenDevelopmentConfig(
         data=PaperDataConfig(**raw.get("data", {})),
         model=PaperModelConfig(**raw.get("model", {})),
         train=PaperTrainConfig(**raw.get("train", {})),
