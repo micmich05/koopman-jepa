@@ -1075,12 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare the train/validation-only MLP development notebook without outputs. It
-must select checkpoints from predictive validation constraints, compute the
-frozen multi-state K-means aggregation on validation only, report prediction,
-rank, purity, and variability gates, and contain no construction of test.
-Review and commit it before execution. Keep the consumed linear result
-unchanged.
+Review and commit the unexecuted train/validation-only MLP development notebook.
+Then run it without changing the frozen protocol. It selects checkpoints from
+predictive validation constraints, computes the frozen multi-state K-means
+aggregation on validation only, reports prediction, rank, purity, and
+variability gates, and contains no construction of test.
+Keep the consumed linear result unchanged.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1157,4 +1157,7 @@ The aggregation implementation is complete in
 `src/koopman_jepa/paper_evaluation.py`. Synthetic tests cover perfectly
 separated embeddings across multiple K-means states, aggregate mean failure,
 within-seed instability, missing and duplicate model seeds, and non-finite
-metrics. No training notebook has been created or executed.
+metrics. The unexecuted notebook
+`notebooks/paper_mlp_clustering_development.ipynb` implements the frozen
+train/validation workflow without constructing test, and a source-level test
+enforces that boundary. No empirical MLP result has been produced yet.
