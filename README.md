@@ -45,7 +45,14 @@ efectivo 20.93. Sin embargo, la brecha individual validation/train llega a
 está congelada en
 [`paper_seed_stability_smoke.yaml`](configs/paper_seed_stability_smoke.yaml):
 selecciona la menor validation loss que todavía respeta los controles de brecha
-y no-colapso, y exige checkpoints válidos para seeds 0–4. Aún no fue ejecutada.
+y no-colapso. El notebook ejecutado
+[`paper_seed_stability_smoke.ipynb`](notebooks/paper_seed_stability_smoke.ipynb)
+encuentra checkpoints válidos para seeds 0–4, pero el gate global falla: el CV
+de las validation loss absolutas es 0.288 frente al límite 0.25. Los demás
+criterios pasan. Como diagnóstico, el CV de los ratios validation/baseline es
+0.210, pero no estaba predefinido y no convierte el resultado en PASS. Test
+permanece cerrado mientras se diseña un protocolo de estabilidad invariante a
+la escala latente.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

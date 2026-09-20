@@ -9,8 +9,8 @@
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
 - Implementation status: dataset audited, preprocessing conditions frozen,
-  model variants implemented, and both development gates passed; checkpoint
-  selection and seed-stability protocol frozen but not yet executed
+  model variants implemented, and both single-run development gates passed;
+  the five-seed stability gate failed, so test evaluation remains locked
 
 Primary sources:
 
@@ -526,6 +526,33 @@ The five-seed stability gate, frozen before running seeds 1–4, requires:
 Passing will establish repeatability across a small set of optimization seeds
 on one fixed development dataset. It will not establish robustness to dataset
 sampling, and it will not by itself authorize a paper-level reproduction claim.
+
+The executed notebook `notebooks/paper_seed_stability_smoke.ipynb` produces an
+eligible checkpoint for every seed, but the global gate fails:
+
+| Diagnostic | Executed result | Gate |
+|---|---:|---:|
+| Selected epochs for seeds 0–4 | 9, 10, 10, 10, 8 | all required |
+| CV of selected absolute validation loss | 0.2879 | at most 0.25 |
+| Worst validation/baseline loss ratio | 0.2777 | at most 0.50 |
+| Worst validation/train loss ratio | 3.671 | at most 4.0 |
+| Worst validation-dispersion retention | 0.6321 | at least 0.10 |
+| Worst validation effective rank | 17.296 | at least 4.0 |
+| All checkpoint metrics finite | yes | required |
+
+The checkpoint constraint behaves as intended: it rejects the final epochs for
+seeds 0 and 4 because their individual validation/train gaps exceed 4, then
+selects earlier eligible epochs. All per-seed improvement and representation
+criteria pass. The only failed criterion is variability of the *absolute*
+validation losses, whose maximum is 2.34 times their minimum.
+
+Absolute JEPA prediction loss is sensitive to latent scale because this model
+does not normalize or otherwise fix embedding magnitude. As a post-result
+diagnostic, the coefficient of variation of the scale-relative
+validation/baseline ratios is `0.210`, below the absolute-loss CV of `0.288`.
+This scale-free statistic was not preregistered and therefore does not change
+the FAIL. It motivates a separately versioned stability protocol whose metric
+is explicitly invariant to latent scale. Test remains untouched meanwhile.
 
 ## Training details absent from the paper
 
