@@ -146,7 +146,9 @@ ya fue ejecutado. Mejoró de 3/5 a 4/5 checkpoints elegibles, pero seed 11
 quedó en rango efectivo `2.10` pese a reducir el error a `0.8%` del inicial; el
 gate predictivo continuó en `FAIL` y clustering fue omitido. El próximo paso es
 un diagnóstico post-hoc de pureza en validation usando el checkpoint de mínimo
-error de cada seed; no habilita test ni cambia el fallo formal.
+error de cada seed; no habilita test ni cambia el fallo formal. Está preparado,
+todavía sin ejecutar, en
+[`paper_mlp_one_hidden_clustering_diagnostic.ipynb`](notebooks/paper_mlp_one_hidden_clustering_diagnostic.ipynb).
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

@@ -1075,12 +1075,13 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare a validation-only post-hoc diagnostic that retains the minimum-loss
-checkpoint for every one-hidden MLP seed without using the local effective-rank
-threshold for selection. Measure the already frozen multi-state K-means metrics
-on all five seeds. This cannot change the formal one-hidden result, authorize a
-test run, or be presented as a preregistered pass; its sole purpose is to learn
-whether the rank guard hides clustering signal. Commit it before execution.
+Review and commit the prepared validation-only post-hoc diagnostic, then run it
+without changes. It retains the minimum-loss checkpoint for every one-hidden
+MLP seed without using the local effective-rank threshold for selection and
+measures the already frozen multi-state K-means metrics on all five seeds. This
+cannot change the formal one-hidden result, authorize a test run, or be
+presented as a preregistered pass; its sole purpose is to learn whether the rank
+guard hides clustering signal.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1193,3 +1194,9 @@ selected epochs 6, 5, 6, and 6 with effective ranks `8.66`, `7.66`, `4.25`, and
 again localized to a predictive low-rank solution. The selected-seed loss-ratio
 CV was also `0.318` against the local maximum `0.25`. K-means and test were not
 run.
+
+The unexecuted diagnostic notebook
+`notebooks/paper_mlp_one_hidden_clustering_diagnostic.ipynb` makes the post-hoc
+selection change explicit by setting the selection-only rank floor to `1.0`.
+All clustering settings remain frozen, and a source test prevents construction
+of the test split.
