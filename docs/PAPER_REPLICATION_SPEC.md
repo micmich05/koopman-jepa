@@ -1075,11 +1075,11 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare a validation-only post-hoc clustering diagnostic for the failed
-two-stage encoder sensitivity. Select the minimum-loss checkpoint for all five
-seeds without using effective rank as a selection filter, retain all frozen
-K-means settings, and report the formal rank status. This cannot change the
-formal FAIL or authorize test. Commit it before execution.
+Review and commit the prepared validation-only post-hoc clustering diagnostic
+for the failed two-stage encoder sensitivity, then run it without changes. It
+selects the minimum-loss checkpoint for all five seeds without using effective
+rank as a selection filter, retains all frozen K-means settings, and reports the
+formal rank status. This cannot change the formal FAIL or authorize test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1222,3 +1222,8 @@ effective rank `4.53`. The minimum-loss epochs for seeds 11–14 had ranks `1.22
 `2.91`, `1.48`, and `1.89`. The two-stage projection therefore worsened
 low-dimensional concentration relative to the direct one-hidden condition.
 Clustering and test were not run.
+
+The unexecuted notebook
+`notebooks/paper_mlp_two_stage_clustering_diagnostic.ipynb` implements the
+descriptive five-seed clustering run. A source test verifies the explicit
+selection-only rank floor and prevents construction of test.
