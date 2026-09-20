@@ -140,9 +140,13 @@ medirse sólo sobre las tres seeds aceptadas. Test no fue construido ni
 consultado. La próxima condición ya está congelada en
 [`paper_mlp_one_hidden_development.yaml`](configs/paper_mlp_one_hidden_development.yaml):
 cambia únicamente el predictor a la lectura de una capa oculta `32→64→32`; no
-relaja el gate observado. Su notebook está preparado sin outputs en
+relaja el gate observado. El notebook
 [`paper_mlp_one_hidden_development.ipynb`](notebooks/paper_mlp_one_hidden_development.ipynb)
-y todavía no fue ejecutado.
+ya fue ejecutado. Mejoró de 3/5 a 4/5 checkpoints elegibles, pero seed 11
+quedó en rango efectivo `2.10` pese a reducir el error a `0.8%` del inicial; el
+gate predictivo continuó en `FAIL` y clustering fue omitido. El próximo paso es
+un diagnóstico post-hoc de pureza en validation usando el checkpoint de mínimo
+error de cada seed; no habilita test ni cambia el fallo formal.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
