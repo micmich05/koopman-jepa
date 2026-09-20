@@ -216,6 +216,17 @@ con rango `7.87` y pureza `51.07%`: estabilizar parcialmente la cola no recupera
 los `65.48%` publicados. No se expandirá a cinco seeds ni se seguirá ajustando
 stabilizers como si fueran una explicación del clustering faltante.
 
+El control supervisado ejecutado
+[`paper_supervised_separability_probe.ipynb`](notebooks/paper_supervised_separability_probe.ipynb)
+sí dio `PASS`: `91.49%` de accuracy, `96.44%` al fusionar el par de senos
+observacionalmente idéntico y `88.05% ± 0.43%` de pureza K-means en los
+embeddings supervisados. Por lo tanto, el dataset reconstruido y el encoder
+convolucional tienen capacidad suficiente; la brecha del JEPA local (~`51%`)
+queda localizada en la receta/objetivo autosupervisado no especificado o en
+otro detalle de implementación ausente. Esto no convierte el control
+supervisado en una reproducción: sólo descarta separabilidad y capacidad como
+explicaciones principales.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

@@ -1168,6 +1168,32 @@ enough regime signal and localizes the missing purity to the self-supervised
 objective/recipe; a FAIL redirects work to the generator or encoder. This is
 not a paper result, does not tune JEPA, and must not construct test.
 
+The executed notebook
+`notebooks/paper_supervised_separability_probe.ipynb` produced `PASS`. The best
+validation checkpoint was epoch 18, with ordinary accuracy and macro recall of
+`91.493%`. Accuracy rises to `96.441%` when the observationally identical
+`sine_med_freq`/`sine_low_amp` pair is treated as one equivalence class. The
+same supervised 32-dimensional embeddings achieve K-means purity
+`88.051% ± 0.431%`, comfortably above the paper's descriptive `65.48%` JEPA
+value and the local self-supervised level near `51%`.
+
+This control does not validate JEPA and cannot be compared as an unsupervised
+method. It does establish that, on the reconstructed medium-scale dataset, the
+published convolutional backbone has enough capacity and the generated inputs
+contain enough regime information. The failed JEPA reproduction is therefore
+not explained by an inseparable generator or an incapable encoder. The
+remaining uncertainty is concentrated in the unpublished self-supervised
+training recipe, checkpoint procedure, or another unreported implementation
+detail. Test was not constructed or consulted.
+
+The paper-reproduction stage now has a clean stopping point: the linear
+near-identity mechanism is reproduced locally, while the published MLP purity
+is not. Continuing as literal reproduction requires new primary information,
+ideally code or hyperparameters from the authors. Continuing without that
+information must be labeled as a new local method experiment, such as adding
+explicit variance/covariance control or latent normalization, rather than as
+another reproduction attempt.
+
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
 same checkpoints and consumed test only to localize regime confusions, measure
