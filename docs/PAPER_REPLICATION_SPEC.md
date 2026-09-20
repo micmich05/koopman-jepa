@@ -1081,3 +1081,10 @@ preregister the next independent condition: either a substantially larger
 fresh-seed linear confirmatory run with uncertainty intervals, or the first
 paper-scale MLP clustering reproduction. Keep the reduced Phase 0 pipeline and
 its failed result unchanged.
+
+An exploratory diagnostic notebook is prepared without outputs at
+`notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
+same checkpoints and consumed test only to localize regime confusions, measure
+K-means random-state sensitivity, and isolate the observationally equivalent
+sinusoid pair. It contains no aggregate gate and cannot revise the recorded
+FAIL. Commit this notebook before executing it.
