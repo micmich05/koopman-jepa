@@ -1082,6 +1082,9 @@ optimization sensitivity:
   <https://ojs.aaai.org/index.php/AAAI/article/view/39708>;
 - arXiv v2, last revised on 2026-01-23, including its HTML appendices and TeX
   source entry: <https://arxiv.org/abs/2511.09783>.
+- the official AAAI-26 poster linked from the proceedings page and hosted by
+  Underline:
+  <https://assets.underline.io/lecture/142223/poster_document/c5434d08f818a32959c2b961185bff5f.pdf>.
 
 Neither official landing page links an implementation, dataset artifact,
 training configuration, or checkpoint. The v2 experimental section and
@@ -1090,6 +1093,11 @@ latent-width prose, and predictor tables, but not the optimizer, learning rate,
 batch size, number of epochs or updates, learning-rate schedule, gradient
 clipping, checkpoint rule, model seeds, or embedding normalization. Therefore,
 the local AdamW recipe cannot be described as the paper's recipe.
+
+The poster repeats the 18 regimes, 10,000 sequences per regime,
+standardization, `n_c = 768`, `Delta = 256`, a small convolutional encoder, and
+the `65.48%`/`38.81%` JEPA/autoencoder purities. It adds no optimizer, batch,
+epoch, scheduler, clipping, checkpoint, or code-release information.
 
 The appendix ambiguity is also unchanged: it states `k = 32`, while the encoder
 table ends with a linear output of `2k`; its MLP table and prose disagree about
@@ -1148,6 +1156,17 @@ gap at the best early checkpoint. Further tuning of stabilizers is not
 justified as a route to the reported `65.48%`. The next diagnostic should return
 to data/representation separability or obtain missing primary implementation
 details rather than add another optimization knob. Test remains untouched.
+
+The next diagnostic is a supervised separability control using the exact
+medium-scale train/validation realization and the same direct 32-dimensional
+convolutional encoder. A linear 18-class head and cross-entropy labels replace
+the JEPA target/predictor only for this diagnostic. The predeclared capacity
+gate requires at least `85%` ordinary validation accuracy and at least `90%`
+accuracy after treating `sine_med_freq` and `sine_low_amp` as one observational
+equivalence class. A PASS means the reconstructed data and encoder contain
+enough regime signal and localizes the missing purity to the self-supervised
+objective/recipe; a FAIL redirects work to the generator or encoder. This is
+not a paper result, does not tune JEPA, and must not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
