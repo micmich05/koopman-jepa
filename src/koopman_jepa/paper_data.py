@@ -112,27 +112,18 @@ def generate_paper_master(
         raise ValueError("length must be positive")
     if regime_id < 0 or regime_id >= len(PAPER_REGIME_NAMES):
         raise ValueError(f"unknown regime_id: {regime_id}")
-    if regime_id > 4:
+    if regime_id > 6 and regime_id != 16:
         name = PAPER_REGIME_NAMES[regime_id]
         raise NotImplementedError(f"paper regime is not implemented yet: {name}")
 
-    time = np.arange(length, dtype=np.float64)
-    phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
-
-    if regime_id == 0:
-        signal = np.sin(_angular_frequency("low", length) * time + phase)
-    elif regime_id == 1:
-        signal = np.sin(_angular_frequency("medium", length) * time + phase)
-    elif regime_id == 2:
-        signal = np.sin(_angular_frequency("high", length) * time + phase)
-    elif regime_id == 3:
-        signal = 0.3 * np.sin(_angular_frequency("medium", length) * time + phase)
+    if regime_id <= 4:
+        signal = _generate_sinusoid(regime_id, length, rng)
+    elif regime_id == 5:
+        signal = _generate_linear_trend(1.5, length, rng)
+    elif regime_id == 6:
+        signal = _generate_linear_trend(-1.5, length, rng)
     else:
-        harmonic_phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
-        medium_frequency = _angular_frequency("medium", length)
-        signal = 0.7 * np.sin(medium_frequency * time + phase) + 0.3 * np.sin(
-            3.0 * medium_frequency * time + harmonic_phase
-        )
+        signal = _generate_sine_trend(length, rng)
 
     return signal.astype(np.float32)
 
@@ -140,6 +131,48 @@ def generate_paper_master(
 def _angular_frequency(band: str, length: int) -> float:
     cycles = PAPER_PERIODIC_CYCLES[band]
     return 2.0 * np.pi * cycles / length
+
+
+def _generate_sinusoid(
+    regime_id: int,
+    length: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    time = np.arange(length, dtype=np.float64)
+    phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+
+    if regime_id == 0:
+        return np.sin(_angular_frequency("low", length) * time + phase)
+    if regime_id == 1:
+        return np.sin(_angular_frequency("medium", length) * time + phase)
+    if regime_id == 2:
+        return np.sin(_angular_frequency("high", length) * time + phase)
+    if regime_id == 3:
+        return 0.3 * np.sin(_angular_frequency("medium", length) * time + phase)
+
+    harmonic_phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+    medium_frequency = _angular_frequency("medium", length)
+    return 0.7 * np.sin(medium_frequency * time + phase) + 0.3 * np.sin(
+        3.0 * medium_frequency * time + harmonic_phase
+    )
+
+
+def _generate_linear_trend(
+    base_slope: float,
+    length: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    normalized_time = np.linspace(0.0, 1.0, length, dtype=np.float64)
+    slope = base_slope + rng.normal(loc=0.0, scale=1.0)
+    intercept = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+    return slope * normalized_time + intercept
+
+
+def _generate_sine_trend(length: int, rng: np.random.Generator) -> np.ndarray:
+    sample_time = np.arange(length, dtype=np.float64)
+    phase = rng.normal(loc=0.0, scale=PAPER_PHASE_STD)
+    sinusoid = 0.8 * np.sin(_angular_frequency("medium", length) * sample_time + phase)
+    return sinusoid + _generate_linear_trend(1.0, length, rng)
 
 
 class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):

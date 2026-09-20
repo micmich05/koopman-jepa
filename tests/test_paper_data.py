@@ -148,5 +148,53 @@ def test_sinusoidal_generation_is_seeded_and_noise_free() -> None:
 
 
 def test_unimplemented_regimes_fail_explicitly() -> None:
-    with np.testing.assert_raises_regex(NotImplementedError, "trend_up"):
-        generate_paper_master(5, 1024, np.random.default_rng(0))
+    with np.testing.assert_raises_regex(NotImplementedError, "ar_pos_strong"):
+        generate_paper_master(7, 1024, np.random.default_rng(0))
+
+
+def test_trend_regimes_follow_documented_randomization() -> None:
+    length = 1024
+    normalized_time = np.linspace(0.0, 1.0, length)
+
+    for regime_id, base_slope in ((5, 1.5), (6, -1.5)):
+        expected_rng = np.random.default_rng(31)
+        slope = base_slope + expected_rng.normal(0.0, 1.0)
+        intercept = expected_rng.normal(0.0, np.pi)
+        expected = slope * normalized_time + intercept
+
+        actual = generate_paper_master(regime_id, length, np.random.default_rng(31))
+
+        assert np.allclose(actual, expected, atol=1e-6)
+
+
+def test_standardization_removes_affine_trend_scale_and_intercept() -> None:
+    upward = generate_paper_master(5, 1024, np.random.default_rng(0))
+    downward = generate_paper_master(6, 1024, np.random.default_rng(0))
+    upward = (upward - upward.mean()) / upward.std()
+    downward = (downward - downward.mean()) / downward.std()
+
+    assert np.allclose(upward, -downward, atol=1e-6)
+    assert np.corrcoef(np.arange(1024), upward)[0, 1] > 0.999999
+    assert np.corrcoef(np.arange(1024), downward)[0, 1] < -0.999999
+
+
+def test_sine_trend_matches_published_sum_under_local_time_assumption() -> None:
+    length = 1024
+    expected_rng = np.random.default_rng(41)
+    phase = expected_rng.normal(0.0, np.pi)
+    slope = 1.0 + expected_rng.normal(0.0, 1.0)
+    intercept = expected_rng.normal(0.0, np.pi)
+    sample_time = np.arange(length)
+    normalized_time = np.linspace(0.0, 1.0, length)
+    expected = (
+        0.8
+        * np.sin(
+            2.0 * np.pi * PAPER_PERIODIC_CYCLES["medium"] * sample_time / length + phase
+        )
+        + slope * normalized_time
+        + intercept
+    )
+
+    actual = generate_paper_master(16, length, np.random.default_rng(41))
+
+    assert np.allclose(actual, expected, atol=1e-6)

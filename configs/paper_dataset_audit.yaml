@@ -13,3 +13,6 @@ generator_assumptions:
   phase_standard_deviation: pi
   wrap_phase: false
   deterministic_observation_noise_std: 0.0
+  trend_time_axis: linspace_0_1_inclusive
+  trend_slope_distribution: base_plus_normal_0_1
+  trend_intercept_distribution: normal_0_pi_squared

@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: dataset generator in progress (5 of 18 regimes)
+- Implementation status: dataset generator in progress (8 of 18 regimes)
 
 Primary sources:
 
@@ -128,6 +128,27 @@ The following choices cannot be recovered exactly from the paper:
 
 These items require either author clarification or explicitly versioned local
 assumptions followed by sensitivity checks.
+
+### Local trend assumptions
+
+The implementation follows the appendix literally where possible: each trend
+slope is `base_slope + Normal(0, 1)`, and each intercept is
+`Normal(0, pi^2)`, interpreted as standard deviation `pi`. The paper does not
+define the time axis used by its trend generator. The local baseline uses
+`linspace(0, 1, L)`. This keeps a base slope of order one commensurate with the
+published sinusoidal amplitudes; using sample indices `0, ..., L-1` would make
+the trend in `Sine_Trend` roughly three orders of magnitude larger than its
+amplitude-0.8 sinusoid.
+
+This choice is an explicit reconstruction assumption, not a recovered paper
+parameter, and requires a later sensitivity run. It also has two important
+consequences that the dataset audit must show:
+
+- per-sequence standardization removes the intercept and the magnitude of a
+  pure affine trend, leaving essentially only its direction;
+- literal `Normal(0, 1)` slope variation around base slopes `+/-1.5` gives each
+  pure-trend class a small probability of reversing direction, creating label
+  overlap unless the unpublished implementation clipped or constrained signs.
 
 ## Confirmed model specification
 
@@ -320,9 +341,10 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Complete the remaining 13 regimes and then build the dataset-audit notebook.
-The five sinusoidal regimes are implemented and covered by frequency,
-amplitude, harmonic-content, determinism, and zero-observation-noise tests. Use
+Complete the remaining 10 regimes and then build the dataset-audit notebook.
+The five sinusoidal and three trend-containing regimes are implemented. They
+are covered by frequency, amplitude, harmonic-content, deterministic
+randomization, affine standardization, and zero-observation-noise tests. Use
 named assumptions for every unresolved item, and keep the reduced Phase 0
 generator unchanged. Do not implement or train the paper-faithful model until
 the dataset audit is reviewed.
