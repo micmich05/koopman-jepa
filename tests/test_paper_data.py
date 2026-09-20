@@ -12,8 +12,10 @@ from koopman_jepa.paper_data import (
     PAPER_PULSE_COUNT,
     PAPER_REGIME_NAMES,
     PaperDataConfig,
+    PaperNormalizationStats,
     PaperRegimeDataset,
     PaperSampleKey,
+    fit_global_normalization,
     generate_paper_master,
     load_paper_data_config,
 )
@@ -113,6 +115,71 @@ def test_nearly_constant_trend_is_standardized_stably() -> None:
 
     assert abs(float(reconstructed_master.mean())) < 1e-6
     assert abs(float(reconstructed_master.std(unbiased=False)) - 1.0) < 1e-6
+
+
+def test_global_normalization_is_fit_on_training_sequences_only() -> None:
+    config = PaperDataConfig(
+        master_length=4,
+        context_length=3,
+        shift=1,
+        train_per_regime=2,
+        val_per_regime=1,
+        test_per_regime=1,
+        normalization="global_train",
+    )
+
+    def constant_master(
+        regime_id: int,
+        length: int,
+        rng: np.random.Generator,
+    ) -> np.ndarray:
+        return np.full(length, regime_id * 10.0 + rng.uniform())
+
+    stats = fit_global_normalization(config, constant_master)
+    expected_values = []
+    for regime_id in range(len(PAPER_REGIME_NAMES)):
+        for sequence_id in range(config.train_per_regime):
+            rng = np.random.default_rng(
+                np.random.SeedSequence([config.base_seed, regime_id, sequence_id])
+            )
+            expected_values.append(regime_id * 10.0 + rng.uniform())
+    expected_values = np.asarray(expected_values)
+
+    assert stats.count == len(PAPER_REGIME_NAMES) * config.train_per_regime * config.master_length
+    assert np.isclose(stats.mean, expected_values.mean())
+    assert np.isclose(stats.std, expected_values.std())
+
+
+def test_global_normalization_requires_fitted_training_stats() -> None:
+    config = PaperDataConfig(
+        train_per_regime=1,
+        val_per_regime=1,
+        test_per_regime=1,
+        normalization="global_train",
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "requires fitted statistics"):
+        PaperRegimeDataset(config, "train", _dummy_master)
+
+
+def test_global_normalization_preserves_relative_sine_amplitude() -> None:
+    config = PaperDataConfig(
+        train_per_regime=1,
+        val_per_regime=1,
+        test_per_regime=1,
+        normalization="global_train",
+    )
+    stats = PaperNormalizationStats(mean=0.0, std=2.0, count=1)
+    dataset = PaperRegimeDataset(config, "train", generate_paper_master, stats)
+
+    medium_context, medium_target, _ = dataset[1]
+    low_context, low_target, _ = dataset[3]
+    medium_master = torch.cat([medium_context.flatten(), medium_target.flatten()[-config.shift :]])
+    low_master = torch.cat([low_context.flatten(), low_target.flatten()[-config.shift :]])
+    medium_scale = float(medium_master.std(unbiased=False))
+    low_amplitude_scale = float(low_master.std(unbiased=False))
+
+    assert np.isclose(low_amplitude_scale / medium_scale, 0.3, atol=1e-6)
 
 
 def test_published_sine_regimes_have_expected_frequency_and_amplitude() -> None:

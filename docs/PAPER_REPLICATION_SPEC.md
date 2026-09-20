@@ -8,7 +8,7 @@
 - Authors: Pablo Ruiz-Morales, Dries Vanoost, Davy Pissoort, Mathias Verbeke
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
-- Implementation status: all 18 regimes implemented and audited; training blocked pending review
+- Implementation status: dataset audited and preprocessing conditions frozen; model pending
 
 Primary sources:
 
@@ -224,6 +224,23 @@ identifiability failure for the claim that all 18 labels correspond to distinct
 observable regimes under the published preprocessing. It is a property of the
 published specification, not an implementation defect.
 
+## Frozen preprocessing conditions
+
+The dataset audit led to two explicitly named conditions:
+
+1. `paper_literal` is the primary reproduction condition. It preserves the
+   published per-master standardization and therefore also preserves the exact
+   observational equivalence between `Sine_MedFreq` and `Sine_LowAmp`.
+2. `amplitude_preserving` is a sensitivity condition. It applies one scalar
+   mean and standard deviation fitted across raw training masters only, then
+   reuses those statistics for validation and test. This prevents split leakage
+   and preserves the published `0.3:1.0` amplitude ratio.
+
+The global-statistics fitter is streaming and does not materialize the full
+training set. A reduced fit may be used for smoke tests only; reported full-run
+results must fit all 7,000 training masters per regime and persist the resulting
+statistics with the run artifacts.
+
 ## Confirmed model specification
 
 ### Encoder
@@ -415,9 +432,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review the identifiability failure before training. The paper-faithful baseline
-can preserve the published preprocessing and report 18 labels but only 17
-observable distributions; a named sensitivity may omit per-sequence
-standardization to preserve amplitude. This choice must not be made silently.
-Keep the reduced Phase 0 generator unchanged and do not implement or train the
-paper-faithful model until the dataset audit is accepted.
+Implement and unit-test the published model as named architecture variants,
+because the encoder projection and MLP depth are internally inconsistent in the
+paper. Do not start a full training run until shape tests, initialization tests,
+EMA tests, and a one-batch optimization smoke test pass for both preprocessing
+conditions. Keep the reduced Phase 0 pipeline unchanged.

@@ -6,7 +6,7 @@ data:
   val_per_regime: 2
   test_per_regime: 2
   base_seed: 0
-  standardize: true
+  normalization: per_sequence
 
 generator_assumptions:
   phase_distribution: normal

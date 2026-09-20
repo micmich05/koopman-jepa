@@ -51,6 +51,7 @@ PAPER_ARMA_COEFFICIENTS = {
 }
 
 Split = Literal["train", "val", "test"]
+NormalizationMode = Literal["per_sequence", "global_train"]
 MasterGenerator = Callable[[int, int, np.random.Generator], np.ndarray]
 
 
@@ -63,7 +64,7 @@ class PaperDataConfig:
     val_per_regime: int = 2_000
     test_per_regime: int = 1_000
     base_seed: int = 0
-    standardize: bool = True
+    normalization: NormalizationMode = "per_sequence"
 
     def validate(self) -> None:
         if self.master_length < 1:
@@ -78,6 +79,8 @@ class PaperDataConfig:
             raise ValueError("every split must contain at least one sample per regime")
         if self.base_seed < 0:
             raise ValueError("base_seed must be non-negative")
+        if self.normalization not in {"per_sequence", "global_train"}:
+            raise ValueError(f"unknown normalization mode: {self.normalization}")
 
     def samples_per_regime(self, split: Split) -> int:
         return {
@@ -100,12 +103,85 @@ class PaperSampleKey:
     sequence_id: int
 
 
+@dataclass(frozen=True, slots=True)
+class PaperNormalizationStats:
+    mean: float
+    std: float
+    count: int
+
+    def validate(self) -> None:
+        if not np.isfinite(self.mean):
+            raise ValueError("normalization mean must be finite")
+        if not np.isfinite(self.std) or self.std <= 0.0:
+            raise ValueError("normalization std must be positive and finite")
+        if self.count < 1:
+            raise ValueError("normalization count must be positive")
+
+
 def load_paper_data_config(path: str | Path) -> PaperDataConfig:
     with Path(path).open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
     config = PaperDataConfig(**raw.get("data", {}))
     config.validate()
     return config
+
+
+def fit_global_normalization(
+    config: PaperDataConfig,
+    generate_master: MasterGenerator,
+    sequences_per_regime: int | None = None,
+) -> PaperNormalizationStats:
+    """Fit scalar normalization statistics using only raw training masters."""
+
+    config.validate()
+    sequence_count = config.train_per_regime
+    if sequences_per_regime is not None:
+        if sequences_per_regime < 1 or sequences_per_regime > config.train_per_regime:
+            raise ValueError("sequences_per_regime must be within the training split")
+        sequence_count = sequences_per_regime
+
+    count = 0
+    mean = 0.0
+    sum_squared_deviations = 0.0
+
+    for regime_id in range(len(PAPER_REGIME_NAMES)):
+        for sequence_id in range(sequence_count):
+            seed_sequence = np.random.SeedSequence(
+                [config.base_seed, regime_id, sequence_id]
+            )
+            rng = np.random.default_rng(seed_sequence)
+            master = np.asarray(
+                generate_master(regime_id, config.master_length, rng),
+                dtype=np.float64,
+            )
+            if master.shape != (config.master_length,):
+                raise ValueError(
+                    f"generator returned shape {master.shape}; "
+                    f"expected {(config.master_length,)}"
+                )
+            if not np.isfinite(master).all():
+                raise ValueError("generator returned non-finite values")
+
+            batch_count = master.size
+            batch_mean = float(master.mean())
+            batch_deviations = master - batch_mean
+            batch_sum_squared_deviations = float(batch_deviations @ batch_deviations)
+            combined_count = count + batch_count
+            delta = batch_mean - mean
+            sum_squared_deviations += (
+                batch_sum_squared_deviations
+                + delta**2 * count * batch_count / combined_count
+            )
+            mean += delta * batch_count / combined_count
+            count = combined_count
+
+    stats = PaperNormalizationStats(
+        mean=mean,
+        std=float(np.sqrt(sum_squared_deviations / count)),
+        count=count,
+    )
+    stats.validate()
+    return stats
 
 
 def generate_paper_master(
@@ -253,11 +329,19 @@ class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         config: PaperDataConfig,
         split: Split,
         generate_master: MasterGenerator,
+        normalization_stats: PaperNormalizationStats | None = None,
     ) -> None:
         config.validate()
+        if config.normalization == "global_train":
+            if normalization_stats is None:
+                raise ValueError("global_train normalization requires fitted statistics")
+            normalization_stats.validate()
+        elif normalization_stats is not None:
+            raise ValueError("normalization statistics require global_train mode")
         self.config = config
         self.split = split
         self.generate_master = generate_master
+        self.normalization_stats = normalization_stats
         self._samples_per_regime = config.samples_per_regime(split)
         self._split_offset = config.split_offset(split)
 
@@ -291,11 +375,17 @@ class PaperRegimeDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         if not np.isfinite(master).all():
             raise ValueError("generator returned non-finite values")
 
-        if self.config.standardize:
+        if self.config.normalization == "per_sequence":
             working_master = master.astype(np.float64)
             mean = float(working_master.mean())
             std = max(float(working_master.std()), 1e-6)
             master = ((working_master - mean) / std).astype(np.float32)
+        else:
+            assert self.normalization_stats is not None
+            master = (
+                (master.astype(np.float64) - self.normalization_stats.mean)
+                / self.normalization_stats.std
+            ).astype(np.float32)
 
         context = master[: self.config.context_length]
         target = master[

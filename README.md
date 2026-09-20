@@ -21,6 +21,14 @@ convierte `Sine_MedFreq` y `Sine_LowAmp` en la misma distribución observable.
 La especificación, los parámetros publicados y cada supuesto local están en
 [`PAPER_REPLICATION_SPEC.md`](docs/PAPER_REPLICATION_SPEC.md).
 
+Las dos condiciones de preprocesamiento quedaron congeladas como:
+
+- [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por
+  secuencia, fiel al texto publicado;
+- [`paper_amplitude_preserving.yaml`](configs/paper_amplitude_preserving.yaml):
+  una sensibilidad con media y desviación globales ajustadas sólo sobre train,
+  que conserva diferencias relativas de amplitud.
+
 ## Qué comprueba la Fase 0
 
 - Regímenes sintéticos temporalmente persistentes e inmiscibles.
