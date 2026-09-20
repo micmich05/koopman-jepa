@@ -3,21 +3,26 @@ from dataclasses import replace
 import numpy as np
 
 from koopman_jepa.paper_config import (
+    PaperKMeansSweepConfig,
     PaperLinearIdentityEvaluationConfig,
     PaperLinearIdentityHeldoutGateConfig,
     PaperLinearPairedHeldoutEvaluationConfig,
     PaperLinearRandomComparisonGateConfig,
     PaperLinearRandomHeldoutGateConfig,
+    PaperMLPClusteringGateConfig,
     PaperSeedSweepConfig,
 )
 from koopman_jepa.paper_evaluation import (
     PaperLinearPairedHeldoutMetrics,
+    PaperMLPSeedClusteringMetrics,
     evaluate_paper_linear_identity,
     evaluate_paper_linear_identity_heldout_gate,
     evaluate_paper_linear_paired_heldout,
     evaluate_paper_linear_random_comparison_gate,
     evaluate_paper_linear_random_heldout_gate,
     evaluate_paper_linear_structure,
+    evaluate_paper_mlp_clustering_gate,
+    evaluate_paper_mlp_seed_clustering,
 )
 from koopman_jepa.paper_training import PaperSeedSummary
 
@@ -413,3 +418,118 @@ def test_random_heldout_gate_rejects_nonfinite_metrics() -> None:
     assert not result.passed
     assert not result.all_finite
     assert result.failed_seeds == (5,)
+
+
+def test_mlp_seed_clustering_aggregates_frozen_kmeans_states() -> None:
+    labels = np.repeat(np.arange(3), 8)
+    embeddings = np.eye(3)[labels]
+    config = PaperKMeansSweepConfig(
+        clusters=3,
+        n_init=5,
+        random_states=(0, 1, 2),
+    )
+
+    metrics = evaluate_paper_mlp_seed_clustering(
+        embeddings,
+        labels,
+        seed=10,
+        config=config,
+    )
+
+    assert metrics.seed == 10
+    assert metrics.mean_purity == 1.0
+    assert metrics.purity_std == 0.0
+    assert metrics.minimum_purity == 1.0
+    assert metrics.maximum_purity == 1.0
+    assert metrics.mean_matched_accuracy == 1.0
+    assert metrics.purities == (1.0, 1.0, 1.0)
+
+
+def _mlp_clustering_metrics(
+    seed: int,
+    *,
+    mean_purity: float,
+    purity_std: float,
+) -> PaperMLPSeedClusteringMetrics:
+    return PaperMLPSeedClusteringMetrics(
+        seed=seed,
+        mean_purity=mean_purity,
+        purity_std=purity_std,
+        minimum_purity=mean_purity - purity_std,
+        maximum_purity=mean_purity + purity_std,
+        mean_matched_accuracy=mean_purity - 0.03,
+        purities=(mean_purity - purity_std, mean_purity + purity_std),
+        matched_accuracies=(mean_purity - 0.04, mean_purity - 0.02),
+    )
+
+
+def test_mlp_clustering_gate_requires_aggregate_and_per_seed_stability() -> None:
+    sweep = PaperSeedSweepConfig(seeds=(10, 11))
+    gate_config = PaperMLPClusteringGateConfig()
+    healthy = [
+        _mlp_clustering_metrics(10, mean_purity=0.64, purity_std=0.01),
+        _mlp_clustering_metrics(11, mean_purity=0.61, purity_std=0.02),
+    ]
+
+    passed = evaluate_paper_mlp_clustering_gate(healthy, sweep, gate_config)
+    low_overall = evaluate_paper_mlp_clustering_gate(
+        [
+            _mlp_clustering_metrics(10, mean_purity=0.58, purity_std=0.01),
+            _mlp_clustering_metrics(11, mean_purity=0.56, purity_std=0.01),
+        ],
+        sweep,
+        gate_config,
+    )
+    unstable_kmeans = evaluate_paper_mlp_clustering_gate(
+        [healthy[0], replace(healthy[1], purity_std=0.04)],
+        sweep,
+        gate_config,
+    )
+    missing_seed = evaluate_paper_mlp_clustering_gate(
+        healthy[:1],
+        sweep,
+        gate_config,
+    )
+
+    assert passed.passed
+    assert passed.overall_mean_purity == 0.625
+    assert passed.worst_seed_mean_purity == 0.61
+    assert passed.worst_within_seed_purity_std == 0.02
+    assert not low_overall.passed
+    assert not low_overall.overall_mean_passed
+    assert low_overall.worst_seed_passed
+    assert not unstable_kmeans.passed
+    assert not unstable_kmeans.kmeans_stability_passed
+    assert unstable_kmeans.failed_seeds == (11,)
+    assert not missing_seed.passed
+    assert not missing_seed.all_seeds_present
+    assert missing_seed.failed_seeds == (11,)
+
+
+def test_mlp_clustering_gate_rejects_nonfinite_and_duplicate_seeds() -> None:
+    sweep = PaperSeedSweepConfig(seeds=(10, 11))
+    gate_config = PaperMLPClusteringGateConfig()
+    healthy = _mlp_clustering_metrics(10, mean_purity=0.64, purity_std=0.01)
+    nonfinite = _mlp_clustering_metrics(
+        11,
+        mean_purity=float("nan"),
+        purity_std=0.01,
+    )
+
+    nonfinite_result = evaluate_paper_mlp_clustering_gate(
+        [healthy, nonfinite],
+        sweep,
+        gate_config,
+    )
+    duplicate_result = evaluate_paper_mlp_clustering_gate(
+        [healthy, replace(healthy, mean_purity=0.63)],
+        sweep,
+        gate_config,
+    )
+
+    assert not nonfinite_result.passed
+    assert not nonfinite_result.all_finite
+    assert nonfinite_result.failed_seeds == (11,)
+    assert not duplicate_result.passed
+    assert not duplicate_result.all_seeds_present
+    assert duplicate_result.failed_seeds == (11,)

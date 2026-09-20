@@ -1075,10 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test the aggregated MLP validation-clustering metrics and
-their global gate. Do not prepare or execute the training notebook until the
-metric definitions pass synthetic tests. Keep test uninstantiated and the
-consumed linear result unchanged.
+Prepare the train/validation-only MLP development notebook without outputs. It
+must select checkpoints from predictive validation constraints, compute the
+frozen multi-state K-means aggregation on validation only, report prediction,
+rank, purity, and variability gates, and contain no construction of test.
+Review and commit it before execution. Keep the consumed linear result
+unchanged.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1150,3 +1152,9 @@ spread, and effective-rank gates must also pass. These are local readiness
 criteria for deciding whether to scale, not an equivalence test against the
 paper's `65.48%` held-out value. No MLP training or test evaluation has yet
 been run under this protocol.
+
+The aggregation implementation is complete in
+`src/koopman_jepa/paper_evaluation.py`. Synthetic tests cover perfectly
+separated embeddings across multiple K-means states, aggregate mean failure,
+within-seed instability, missing and duplicate model seeds, and non-finite
+metrics. No training notebook has been created or executed.

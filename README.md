@@ -130,6 +130,8 @@ régimen, seeds de modelo 10–14 y el MLP `32→64→64→32`. La pureza de val
 se promediará sobre 20 `random_state` de K-means, todos con `n_init=20`. El gate
 de desarrollo exige media global ≥60%, peor seed ≥55%, CV entre seeds ≤10% y
 desviación intra-seed ≤3 puntos. Test no se construirá en esta etapa.
+Las métricas agregadas y el gate ya están implementados y cubiertos por casos
+sintéticos; el entrenamiento todavía no fue preparado ni ejecutado.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

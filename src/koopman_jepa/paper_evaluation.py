@@ -7,12 +7,15 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
 
+from .analysis import clustering_diagnostics
 from .paper_config import (
+    PaperKMeansSweepConfig,
     PaperLinearIdentityEvaluationConfig,
     PaperLinearIdentityHeldoutGateConfig,
     PaperLinearPairedHeldoutEvaluationConfig,
     PaperLinearRandomComparisonGateConfig,
     PaperLinearRandomHeldoutGateConfig,
+    PaperMLPClusteringGateConfig,
     PaperSeedSweepConfig,
 )
 from .paper_training import PaperSeedSummary
@@ -122,6 +125,35 @@ class PaperLinearRandomHeldoutGateResult:
     absolute_rank_passed: bool
     relative_rank_passed: bool
     comparisons: tuple[PaperLinearRandomHeldoutSeedComparison, ...]
+    passed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PaperMLPSeedClusteringMetrics:
+    seed: int
+    mean_purity: float
+    purity_std: float
+    minimum_purity: float
+    maximum_purity: float
+    mean_matched_accuracy: float
+    purities: tuple[float, ...]
+    matched_accuracies: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PaperMLPClusteringGateResult:
+    all_seeds_present: bool
+    all_finite: bool
+    overall_mean_purity: float
+    worst_seed_mean_purity: float
+    seed_mean_purity_coefficient_of_variation: float
+    worst_within_seed_purity_std: float
+    failed_seeds: tuple[int, ...]
+    overall_mean_passed: bool
+    worst_seed_passed: bool
+    seed_variability_passed: bool
+    kmeans_stability_passed: bool
+    metrics: tuple[PaperMLPSeedClusteringMetrics, ...]
     passed: bool
 
 
@@ -741,5 +773,158 @@ def evaluate_paper_linear_random_heldout_gate(
             and relative_purity_passed
             and absolute_rank_passed
             and relative_rank_passed
+        ),
+    )
+
+
+def evaluate_paper_mlp_seed_clustering(
+    embeddings: np.ndarray,
+    labels: np.ndarray,
+    seed: int,
+    config: PaperKMeansSweepConfig,
+) -> PaperMLPSeedClusteringMetrics:
+    """Aggregate validation clustering across frozen K-means random states."""
+
+    config.validate()
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
+    results = [
+        clustering_diagnostics(
+            embeddings,
+            labels,
+            config.clusters,
+            kmeans_seed,
+            n_init=config.n_init,
+        )
+        for kmeans_seed in config.random_states
+    ]
+    purities = np.array(
+        [result["kmeans_purity"] for result in results],
+        dtype=np.float64,
+    )
+    matched_accuracies = np.array(
+        [result["kmeans_matched_accuracy"] for result in results],
+        dtype=np.float64,
+    )
+    return PaperMLPSeedClusteringMetrics(
+        seed=seed,
+        mean_purity=float(purities.mean()),
+        purity_std=float(purities.std()),
+        minimum_purity=float(purities.min()),
+        maximum_purity=float(purities.max()),
+        mean_matched_accuracy=float(matched_accuracies.mean()),
+        purities=tuple(float(value) for value in purities),
+        matched_accuracies=tuple(float(value) for value in matched_accuracies),
+    )
+
+
+def _mlp_clustering_metrics_are_finite(
+    metrics: PaperMLPSeedClusteringMetrics,
+) -> bool:
+    return all(
+        math.isfinite(value)
+        for value in (
+            metrics.mean_purity,
+            metrics.purity_std,
+            metrics.minimum_purity,
+            metrics.maximum_purity,
+            metrics.mean_matched_accuracy,
+            *metrics.purities,
+            *metrics.matched_accuracies,
+        )
+    )
+
+
+def evaluate_paper_mlp_clustering_gate(
+    metrics: list[PaperMLPSeedClusteringMetrics],
+    sweep: PaperSeedSweepConfig,
+    config: PaperMLPClusteringGateConfig,
+) -> PaperMLPClusteringGateResult:
+    """Apply the frozen aggregate validation-clustering development gate."""
+
+    sweep.validate()
+    config.validate()
+    expected_seeds = set(sweep.seeds)
+    observed_seeds = [row.seed for row in metrics]
+    unique_seeds = len(observed_seeds) == len(set(observed_seeds))
+    metrics_by_seed = {row.seed: row for row in metrics}
+    all_seeds_present = unique_seeds and set(metrics_by_seed) == expected_seeds
+    relevant_metrics = tuple(
+        metrics_by_seed[seed]
+        for seed in sorted(expected_seeds.intersection(metrics_by_seed))
+    )
+    all_finite = bool(relevant_metrics) and all(
+        _mlp_clustering_metrics_are_finite(row) for row in relevant_metrics
+    )
+
+    if relevant_metrics:
+        seed_means = np.array(
+            [row.mean_purity for row in relevant_metrics],
+            dtype=np.float64,
+        )
+        overall_mean_purity = float(seed_means.mean())
+        worst_seed_mean_purity = float(seed_means.min())
+        seed_mean_purity_coefficient_of_variation = float(
+            seed_means.std() / max(abs(overall_mean_purity), 1e-12)
+        )
+        worst_within_seed_purity_std = max(
+            row.purity_std for row in relevant_metrics
+        )
+    else:
+        overall_mean_purity = 0.0
+        worst_seed_mean_purity = 0.0
+        seed_mean_purity_coefficient_of_variation = math.inf
+        worst_within_seed_purity_std = math.inf
+
+    overall_mean_passed = (
+        overall_mean_purity >= config.min_overall_mean_purity
+    )
+    worst_seed_passed = (
+        worst_seed_mean_purity >= config.min_worst_seed_mean_purity
+    )
+    seed_variability_passed = (
+        seed_mean_purity_coefficient_of_variation
+        <= config.max_seed_mean_purity_coefficient_of_variation
+    )
+    kmeans_stability_passed = (
+        worst_within_seed_purity_std <= config.max_within_seed_purity_std
+    )
+    failed_seeds = tuple(
+        sorted(
+            (expected_seeds - set(metrics_by_seed))
+            | {
+                row.seed
+                for row in relevant_metrics
+                if (
+                    not _mlp_clustering_metrics_are_finite(row)
+                    or row.mean_purity < config.min_worst_seed_mean_purity
+                    or row.purity_std > config.max_within_seed_purity_std
+                )
+            }
+        )
+    )
+    return PaperMLPClusteringGateResult(
+        all_seeds_present=all_seeds_present,
+        all_finite=all_finite,
+        overall_mean_purity=overall_mean_purity,
+        worst_seed_mean_purity=worst_seed_mean_purity,
+        seed_mean_purity_coefficient_of_variation=(
+            seed_mean_purity_coefficient_of_variation
+        ),
+        worst_within_seed_purity_std=worst_within_seed_purity_std,
+        failed_seeds=failed_seeds,
+        overall_mean_passed=overall_mean_passed,
+        worst_seed_passed=worst_seed_passed,
+        seed_variability_passed=seed_variability_passed,
+        kmeans_stability_passed=kmeans_stability_passed,
+        metrics=relevant_metrics,
+        passed=(
+            all_seeds_present
+            and all_finite
+            and not failed_seeds
+            and overall_mean_passed
+            and worst_seed_passed
+            and seed_variability_passed
+            and kmeans_stability_passed
         ),
     )
