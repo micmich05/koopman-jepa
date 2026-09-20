@@ -94,6 +94,14 @@ estos epochs para una comparación posterior sobre el test smoke ya consumido;
 no constituye todavía evidencia held-out del control ni una reproducción a
 escala completa.
 
+El protocolo siguiente está congelado, pero todavía no ejecutado, en
+[`paper_linear_random_heldout_smoke.yaml`](configs/paper_linear_random_heldout_smoke.yaml).
+Obliga a reproducir los diez checkpoints antes de reconstruir test y compara
+las dos condiciones mediante error predictivo normalizado, pureza K-means y
+rango efectivo. Los thresholds se fijaron antes de observar el test random. La
+partición ya fue consumida por la evaluación identidad, por lo que este control
+será predeclarado pero no una segunda prueba ciega independiente.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

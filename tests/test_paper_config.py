@@ -8,6 +8,7 @@ from koopman_jepa.paper_config import (
     load_paper_experiment_config,
     load_paper_linear_identity_heldout_config,
     load_paper_linear_random_control_config,
+    load_paper_linear_random_heldout_config,
     load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
@@ -177,4 +178,46 @@ def test_linear_random_control_config_rejects_identity_initialization() -> None:
     )
 
     with np.testing.assert_raises_regex(ValueError, "Xavier-uniform"):
+        invalid.validate()
+
+
+def test_linear_random_heldout_config_freezes_both_replays_and_gates() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_random_heldout_smoke.yaml"
+    )
+
+    config = load_paper_linear_random_heldout_config(path)
+
+    assert config.data.base_seed == 0
+    assert config.data.test_per_regime == 8
+    assert config.model.predictor_kind == "linear"
+    assert config.model.linear_initialization == "xavier_uniform"
+    assert config.sweep.seeds == (5, 6, 7, 8, 9)
+    assert config.identity_replay.expected_epochs == (10, 10, 10, 8, 10)
+    assert config.random_replay.expected_epochs == (10, 10, 10, 10, 10)
+    assert config.evaluation.kmeans_clusters == 18
+    assert config.evaluation.kmeans_n_init == 20
+    assert config.evaluation.kmeans_seed == 0
+    assert config.gate.max_random_to_identity_prediction_error_ratio == 2.0
+    assert config.gate.min_random_kmeans_purity == 0.50
+    assert config.gate.min_random_to_identity_kmeans_purity_ratio == 0.90
+    assert config.gate.min_random_test_effective_rank == 4.0
+    assert config.gate.min_random_to_identity_effective_rank_ratio == 0.50
+
+
+def test_linear_random_heldout_config_rejects_unfrozen_random_epochs() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_random_heldout_smoke.yaml"
+    )
+    config = load_paper_linear_random_heldout_config(path)
+    invalid = replace(
+        config,
+        random_replay=replace(config.random_replay, expected_epochs=(10,)),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "random checkpoint epochs"):
         invalid.validate()

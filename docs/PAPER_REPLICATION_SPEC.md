@@ -844,6 +844,54 @@ in development with a dense non-identity operator. This supports the paper's
 qualitative basis-selection mechanism, but still supplies no held-out evidence
 for the random control and no full-scale numerical reproduction.
 
+### Frozen paired held-out random control (not yet executed)
+
+`configs/paper_linear_random_heldout_smoke.yaml` freezes the next protocol
+before any random-control test embedding is computed. It retains the same
+dataset realization, five seeds, optimizer, schedule, checkpoint policy, and
+model architecture. The identity checkpoint epochs are `(10, 10, 10, 8, 10)`;
+the random checkpoint epochs are `(10, 10, 10, 10, 10)`. Both sets must replay
+with absolute metric tolerance `1e-8`. Test construction is unauthorized unless
+all ten replays pass.
+
+After authorization, both conditions use the same 144 test pairs and labels.
+For condition `c` and seed `s`, the scale-normalized prediction error is
+
+```text
+e[c,s] = sqrt(
+    sum_i ||M[c,s] z_online[c,s,i] - z_target[c,s,i]||_2^2
+    / sum_i ||z_target[c,s,i]||_2^2
+).
+```
+
+The square root keeps the quantity on the embedding scale, while division by
+target energy makes the paired comparison insensitive to a separate global
+rescaling of either learned latent system. A random condition can pass only if
+`e[random,s] / e[identity,s] <= 2.0` for every seed.
+
+Clustering uses raw online test embeddings with `K = 18`, `n_init = 20`, and
+`random_state = 0`. Purity is `sum_k max_j n[k,j] / N`, where `n[k,j]` counts
+ground-truth regime `j` inside cluster `k`. For every seed, random purity must
+be at least `0.50` and at least `0.90` times identity purity. The absolute rule
+prevents two equally poor clusterings from passing a purely relative gate; the
+relative rule operationalizes the paper's qualitative claim that clear
+clustering is retained. Matched cluster accuracy will be reported as a
+diagnostic but is not a gate because the paper reports purity.
+
+Non-collapse is checked by the entropy effective rank already used throughout
+the smoke pipeline. Random test rank must be at least `4.0` and at least `0.50`
+times the paired identity rank for every seed. The structural properties of
+the random matrices will still be reported, but need not be re-gated because
+the exact same frozen checkpoints already passed the data-independent
+non-identity and off-diagonal controls in development.
+
+The paired held-out gate passes only if every seed satisfies all five criteria
+and every reported quantity is finite. These are local criteria chosen before
+the random test run; they are not thresholds published by the authors. The
+identity side of this test split has already been inspected, so the experiment
+can evaluate the predeclared random-control hypothesis but cannot restore an
+independently blind test claim.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -978,9 +1026,7 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze the random selected epochs `(10, 10, 10, 10, 10)` in a separate paired
-held-out-control protocol before running it. Reproduce both identity and random
-checkpoints exactly before constructing test, then compare their clustering,
-operator structure, and non-collapse metrics on the already-consumed smoke
-split. Report explicitly that this is a predeclared comparison but not a second
-independently blind use of test. Keep the reduced Phase 0 pipeline unchanged.
+Implement and unit-test the scale-normalized prediction, clustering, rank, and
+aggregate gate metrics frozen in `paper_linear_random_heldout_smoke.yaml`.
+Do not construct test or prepare the executable notebook until those metric
+definitions pass synthetic tests. Keep the reduced Phase 0 pipeline unchanged.

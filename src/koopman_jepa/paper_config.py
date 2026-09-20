@@ -256,6 +256,48 @@ class PaperLinearRandomComparisonGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PaperLinearPairedHeldoutEvaluationConfig:
+    kmeans_clusters: int = 18
+    kmeans_n_init: int = 20
+    kmeans_seed: int = 0
+
+    def validate(self) -> None:
+        if self.kmeans_clusters < 2:
+            raise ValueError("kmeans_clusters must be at least two")
+        if self.kmeans_n_init < 1:
+            raise ValueError("kmeans_n_init must be positive")
+        if self.kmeans_seed < 0:
+            raise ValueError("kmeans_seed must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearRandomHeldoutGateConfig:
+    max_random_to_identity_prediction_error_ratio: float = 2.0
+    min_random_kmeans_purity: float = 0.50
+    min_random_to_identity_kmeans_purity_ratio: float = 0.90
+    min_random_test_effective_rank: float = 4.0
+    min_random_to_identity_effective_rank_ratio: float = 0.50
+
+    def validate(self) -> None:
+        if self.max_random_to_identity_prediction_error_ratio < 1.0:
+            raise ValueError(
+                "max_random_to_identity_prediction_error_ratio must be at least one"
+            )
+        if not 0.0 < self.min_random_kmeans_purity <= 1.0:
+            raise ValueError("min_random_kmeans_purity must be in (0, 1]")
+        if not 0.0 < self.min_random_to_identity_kmeans_purity_ratio <= 1.0:
+            raise ValueError(
+                "min_random_to_identity_kmeans_purity_ratio must be in (0, 1]"
+            )
+        if self.min_random_test_effective_rank < 1.0:
+            raise ValueError("min_random_test_effective_rank must be at least one")
+        if not 0.0 < self.min_random_to_identity_effective_rank_ratio <= 1.0:
+            raise ValueError(
+                "min_random_to_identity_effective_rank_ratio must be in (0, 1]"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class PaperExperimentConfig:
     data: PaperDataConfig
     model: PaperModelConfig
@@ -394,6 +436,48 @@ class PaperLinearRandomControlConfig:
             raise ValueError("identity checkpoint epochs must not exceed training epochs")
 
 
+@dataclass(frozen=True, slots=True)
+class PaperLinearRandomHeldoutConfig:
+    data: PaperDataConfig
+    model: PaperModelConfig
+    train: PaperTrainConfig
+    checkpoint_gate: PaperValidationGateConfig
+    sweep: PaperSeedSweepConfig
+    identity_replay: PaperCheckpointReplayConfig
+    random_replay: PaperCheckpointReplayConfig
+    evaluation: PaperLinearPairedHeldoutEvaluationConfig
+    gate: PaperLinearRandomHeldoutGateConfig
+
+    def validate(self) -> None:
+        self.data.validate()
+        self.model.validate()
+        self.train.validate()
+        self.checkpoint_gate.validate()
+        self.sweep.validate()
+        self.identity_replay.validate()
+        self.random_replay.validate()
+        self.evaluation.validate()
+        self.gate.validate()
+        if self.model.predictor_kind != "linear":
+            raise ValueError("paired held-out control requires a linear predictor")
+        if self.model.linear_initialization != "xavier_uniform":
+            raise ValueError(
+                "paired held-out control requires Xavier-uniform initialization"
+            )
+        if len(self.identity_replay.expected_epochs) != len(self.sweep.seeds):
+            raise ValueError("identity checkpoint epochs must align with sweep seeds")
+        if len(self.random_replay.expected_epochs) != len(self.sweep.seeds):
+            raise ValueError("random checkpoint epochs must align with sweep seeds")
+        replay_epochs = (
+            *self.identity_replay.expected_epochs,
+            *self.random_replay.expected_epochs,
+        )
+        if any(epoch > self.train.epochs for epoch in replay_epochs):
+            raise ValueError("checkpoint epochs must not exceed training epochs")
+        if self.gate.min_random_test_effective_rank > self.model.latent_dim:
+            raise ValueError("min_random_test_effective_rank must not exceed latent_dim")
+
+
 def load_paper_experiment_config(path: str | Path) -> PaperExperimentConfig:
     with Path(path).open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
@@ -519,6 +603,46 @@ def load_paper_linear_random_control_config(
         comparison_gate=PaperLinearRandomComparisonGateConfig(
             **raw.get("comparison_gate", {})
         ),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_linear_random_heldout_config(
+    path: str | Path,
+) -> PaperLinearRandomHeldoutConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (5, 6, 7, 8, 9))
+    identity_epochs = raw.get("identity_replay", {}).get(
+        "expected_epochs",
+        (10, 10, 10, 8, 10),
+    )
+    random_epochs = raw.get("random_replay", {}).get(
+        "expected_epochs",
+        (10, 10, 10, 10, 10),
+    )
+    identity_replay_raw = {
+        **raw.get("identity_replay", {}),
+        "expected_epochs": tuple(identity_epochs),
+    }
+    random_replay_raw = {
+        **raw.get("random_replay", {}),
+        "expected_epochs": tuple(random_epochs),
+    }
+    config = PaperLinearRandomHeldoutConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        identity_replay=PaperCheckpointReplayConfig(**identity_replay_raw),
+        random_replay=PaperCheckpointReplayConfig(**random_replay_raw),
+        evaluation=PaperLinearPairedHeldoutEvaluationConfig(
+            **raw.get("evaluation", {})
+        ),
+        gate=PaperLinearRandomHeldoutGateConfig(**raw.get("gate", {})),
     )
     config.validate()
     return config
