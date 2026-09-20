@@ -1075,12 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the prepared validation-only notebook for the frozen
-medium-scale data pilot, then run it unchanged. It uses the best local base
-condition (direct encoder, one-hidden predictor, learning rate `3e-4`) and
-increases train/validation masters per regime from 64/32 to 256/64. Keep model
-seeds, 20 epochs, EMA, checkpoint policy, and clustering aggregation fixed.
-This is a scaling diagnostic, not the paper-scale test. Do not construct test.
+Before defining another optimization sensitivity, re-check primary sources and
+official repositories for a released training recipe or code specifying the
+step budget, learning-rate schedule, gradient clipping, and embedding
+normalization. The medium-scale curves show severe step-dependent divergence,
+so further scaling with the current recipe is not justified. Do not construct
+test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1260,7 +1260,21 @@ necessarily shift because split offsets follow the enlarged train range, so
 the result will be interpreted as a scaling trend rather than a paired
 sample-for-sample comparison. It has not been executed.
 
-The unexecuted notebook `notebooks/paper_mlp_medium_scale_development.ipynb`
+The executed notebook `notebooks/paper_mlp_medium_scale_development.ipynb`
 implements the 4,608-sample train and 1,152-sample validation run. It reports
 formal predictive readiness and five-seed clustering in one execution, with a
 source test preventing test construction.
+
+The pilot yields `49.92%` overall purity, versus `50.76%` in the smaller direct
+one-hidden condition. Because split offsets changed, the `−0.84` point
+difference is not paired, but there is no large positive scaling trend. Per-seed
+means range from `45.40%` to `53.40%`; seed-mean CV is `0.058` and worst K-means
+standard deviation is `1.00%`. Four seeds exceed effective rank 4; seed 11 is
+`1.95`, and validation-loss-ratio CV fails at `0.343`.
+
+More importantly, minimum-loss checkpoints move to epochs 1–2 with 72 batches
+per epoch, corresponding to roughly 72–144 updates. The small condition's
+minima at epochs 5–7 with 18 batches per epoch correspond to roughly 90–126
+updates. Later medium-scale validation loss explodes by hundreds of times its
+initial value. This step-aligned instability suggests a missing optimization
+detail rather than a simple data shortage. Test remains untouched.

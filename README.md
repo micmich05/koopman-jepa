@@ -183,10 +183,12 @@ El próximo piloto está congelado en
 [`paper_mlp_medium_scale_development.yaml`](configs/paper_mlp_medium_scale_development.yaml):
 usa la mejor configuración base y escala de 64/32 a 256/64 secuencias
 train/validation por régimen. Es un diagnóstico intermedio de escala, todavía
-lejos de los miles de ejemplos por régimen del paper. Su notebook está
-preparado sin outputs en
+lejos de los miles de ejemplos por régimen del paper. Su notebook
 [`paper_mlp_medium_scale_development.ipynb`](notebooks/paper_mlp_medium_scale_development.ipynb)
-y todavía no fue ejecutado.
+y ya fue ejecutado. Con 4× más train, la pureza queda en `49.92%`, sin mejora
+frente al `50.76%` pequeño. Los checkpoints óptimos ocurren tras un número de
+updates similar, pero el error explota después; esto apunta a una receta de
+optimización incompleta más que a falta de datos.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
