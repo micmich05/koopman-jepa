@@ -9,8 +9,10 @@ from sklearn.cluster import KMeans
 from .paper_config import (
     PaperLinearIdentityEvaluationConfig,
     PaperLinearIdentityHeldoutGateConfig,
+    PaperLinearRandomComparisonGateConfig,
     PaperSeedSweepConfig,
 )
+from .paper_training import PaperSeedSummary
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +44,61 @@ class PaperLinearIdentityHeldoutGateResult:
     eigenvalues_passed: bool
     effective_rank_passed: bool
     passed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearStructureMetrics:
+    relative_identity_error: float
+    off_diagonal_fraction: float
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearRandomSeedComparison:
+    seed: int
+    validation_improvement_ratio: float
+    absolute_validation_loss_ratio: float
+    relative_identity_error: float
+    off_diagonal_fraction: float
+    passed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLinearRandomComparisonGateResult:
+    all_seeds_present: bool
+    all_finite: bool
+    worst_validation_improvement_ratio: float
+    worst_absolute_validation_loss_ratio: float
+    minimum_relative_identity_error: float
+    minimum_off_diagonal_fraction: float
+    failed_seeds: tuple[int, ...]
+    predictive_comparability_passed: bool
+    non_identity_passed: bool
+    density_passed: bool
+    comparisons: tuple[PaperLinearRandomSeedComparison, ...]
+    passed: bool
+
+
+def evaluate_paper_linear_structure(
+    matrix: np.ndarray,
+) -> PaperLinearStructureMetrics:
+    """Measure distance from identity and off-diagonal matrix mass."""
+
+    matrix = np.asarray(matrix, dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("predictor matrix must be square")
+    if not np.isfinite(matrix).all():
+        raise ValueError("predictor matrix must be finite")
+    matrix_norm = max(float(np.linalg.norm(matrix)), 1e-12)
+    identity = np.eye(matrix.shape[0], dtype=matrix.dtype)
+    diagonal = np.diag(np.diag(matrix))
+    return PaperLinearStructureMetrics(
+        relative_identity_error=float(
+            np.linalg.norm(matrix - identity) / matrix_norm
+        ),
+        off_diagonal_fraction=float(
+            np.linalg.norm(matrix - diagonal) / matrix_norm
+        ),
+    )
 
 
 def _validate_operator_inputs(
@@ -93,9 +150,8 @@ def evaluate_paper_linear_identity(
     ).fit(embeddings)
     centroids = clustering.cluster_centers_
 
+    structure = evaluate_paper_linear_structure(matrix)
     matrix_norm = max(float(np.linalg.norm(matrix)), 1e-12)
-    identity = np.eye(matrix.shape[0], dtype=matrix.dtype)
-    relative_identity_error = float(np.linalg.norm(matrix - identity) / matrix_norm)
     relative_skew_norm = float(np.linalg.norm(matrix - matrix.T) / matrix_norm)
 
     transformed_centroids = centroids @ matrix.T
@@ -111,7 +167,7 @@ def evaluate_paper_linear_identity(
     )
     test_embedding_std_mean, test_effective_rank = _embedding_spread(embeddings)
     return PaperLinearIdentityMetrics(
-        relative_identity_error=relative_identity_error,
+        relative_identity_error=structure.relative_identity_error,
         relative_skew_norm=relative_skew_norm,
         mean_centroid_action_error=mean_centroid_action_error,
         near_identity_eigenvalues=near_identity_eigenvalues,
@@ -235,5 +291,156 @@ def evaluate_paper_linear_identity_heldout_gate(
             and centroid_action_passed
             and eigenvalues_passed
             and effective_rank_passed
+        ),
+    )
+
+
+def _index_seed_summaries(
+    summaries: list[PaperSeedSummary],
+) -> tuple[dict[int, PaperSeedSummary], bool]:
+    seeds = [summary.seed for summary in summaries]
+    return {summary.seed: summary for summary in summaries}, len(seeds) == len(set(seeds))
+
+
+def evaluate_paper_linear_random_comparison_gate(
+    identity_summaries: list[PaperSeedSummary],
+    random_summaries: list[PaperSeedSummary],
+    random_matrices: dict[int, np.ndarray],
+    sweep: PaperSeedSweepConfig,
+    config: PaperLinearRandomComparisonGateConfig,
+) -> PaperLinearRandomComparisonGateResult:
+    """Evaluate paired predictive comparability and random-matrix structure."""
+
+    sweep.validate()
+    config.validate()
+    expected_seeds = set(sweep.seeds)
+    identity_by_seed, identity_unique = _index_seed_summaries(identity_summaries)
+    random_by_seed, random_unique = _index_seed_summaries(random_summaries)
+    all_seeds_present = (
+        identity_unique
+        and random_unique
+        and set(identity_by_seed) == expected_seeds
+        and set(random_by_seed) == expected_seeds
+        and set(random_matrices) == expected_seeds
+    )
+    common_seeds = expected_seeds.intersection(
+        identity_by_seed,
+        random_by_seed,
+        random_matrices,
+    )
+
+    comparisons: list[PaperLinearRandomSeedComparison] = []
+    for seed in sorted(common_seeds):
+        identity = identity_by_seed[seed]
+        random = random_by_seed[seed]
+        structure = evaluate_paper_linear_structure(random_matrices[seed])
+        validation_improvement_ratio = random.validation_loss_ratio / max(
+            identity.validation_loss_ratio,
+            1e-12,
+        )
+        absolute_validation_loss_ratio = random.validation_loss / max(
+            identity.validation_loss,
+            1e-12,
+        )
+        values = (
+            validation_improvement_ratio,
+            absolute_validation_loss_ratio,
+            structure.relative_identity_error,
+            structure.off_diagonal_fraction,
+        )
+        passed = (
+            all(math.isfinite(value) for value in values)
+            and validation_improvement_ratio
+            <= config.max_random_to_identity_validation_improvement_ratio
+            and structure.relative_identity_error
+            >= config.min_random_relative_identity_error
+            and structure.off_diagonal_fraction
+            >= config.min_random_off_diagonal_fraction
+        )
+        comparisons.append(
+            PaperLinearRandomSeedComparison(
+                seed=seed,
+                validation_improvement_ratio=validation_improvement_ratio,
+                absolute_validation_loss_ratio=absolute_validation_loss_ratio,
+                relative_identity_error=structure.relative_identity_error,
+                off_diagonal_fraction=structure.off_diagonal_fraction,
+                passed=passed,
+            )
+        )
+
+    if comparisons:
+        worst_validation_improvement_ratio = max(
+            comparison.validation_improvement_ratio
+            for comparison in comparisons
+        )
+        worst_absolute_validation_loss_ratio = max(
+            comparison.absolute_validation_loss_ratio
+            for comparison in comparisons
+        )
+        minimum_relative_identity_error = min(
+            comparison.relative_identity_error for comparison in comparisons
+        )
+        minimum_off_diagonal_fraction = min(
+            comparison.off_diagonal_fraction for comparison in comparisons
+        )
+    else:
+        worst_validation_improvement_ratio = math.inf
+        worst_absolute_validation_loss_ratio = math.inf
+        minimum_relative_identity_error = 0.0
+        minimum_off_diagonal_fraction = 0.0
+
+    all_finite = bool(comparisons) and all(
+        all(
+            math.isfinite(value)
+            for value in (
+                comparison.validation_improvement_ratio,
+                comparison.absolute_validation_loss_ratio,
+                comparison.relative_identity_error,
+                comparison.off_diagonal_fraction,
+            )
+        )
+        for comparison in comparisons
+    )
+    predictive_comparability_passed = (
+        worst_validation_improvement_ratio
+        <= config.max_random_to_identity_validation_improvement_ratio
+    )
+    non_identity_passed = (
+        minimum_relative_identity_error
+        >= config.min_random_relative_identity_error
+    )
+    density_passed = (
+        minimum_off_diagonal_fraction
+        >= config.min_random_off_diagonal_fraction
+    )
+    failed_seeds = tuple(
+        sorted(
+            (expected_seeds - common_seeds)
+            | {
+                comparison.seed
+                for comparison in comparisons
+                if not comparison.passed
+            }
+        )
+    )
+    return PaperLinearRandomComparisonGateResult(
+        all_seeds_present=all_seeds_present,
+        all_finite=all_finite,
+        worst_validation_improvement_ratio=worst_validation_improvement_ratio,
+        worst_absolute_validation_loss_ratio=worst_absolute_validation_loss_ratio,
+        minimum_relative_identity_error=minimum_relative_identity_error,
+        minimum_off_diagonal_fraction=minimum_off_diagonal_fraction,
+        failed_seeds=failed_seeds,
+        predictive_comparability_passed=predictive_comparability_passed,
+        non_identity_passed=non_identity_passed,
+        density_passed=density_passed,
+        comparisons=tuple(comparisons),
+        passed=(
+            all_seeds_present
+            and all_finite
+            and not failed_seeds
+            and predictive_comparability_passed
+            and non_identity_passed
+            and density_passed
         ),
     )

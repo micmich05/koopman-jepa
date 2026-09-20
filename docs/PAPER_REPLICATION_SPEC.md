@@ -791,6 +791,17 @@ any paired evaluation on the already-consumed smoke test. Such a later
 comparison can still test the predeclared control, but it will not constitute a
 second independently blind use of that split.
 
+The paired metrics are implemented in
+`src/koopman_jepa/paper_evaluation.py`. The structural calculation separates
+the diagonal explicitly and normalizes both identity distance and off-diagonal
+mass by `||M||_F`. The aggregate result retains per-seed comparisons and
+requires exact seed coverage, finite values, predictive comparability,
+non-identity structure, and density simultaneously. Synthetic tests verify
+that the relative-improvement gate is unaffected by a fourfold absolute-loss
+difference, that an identity matrix fails both structural controls, and that
+missing seeds or non-finite matrices cannot pass. No random-control training or
+held-out evaluation has been run.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -925,8 +936,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test the paired random-control comparison metrics, then
-prepare an unexecuted train/validation notebook. Do not instantiate test in
-that notebook. If the development gate passes, freeze its selected random
-checkpoint epochs before any comparison on the already-consumed smoke split.
-Keep the reduced Phase 0 pipeline unchanged.
+Prepare an unexecuted paired train/validation notebook. It must replay the
+identity checkpoints, train the Xavier-initialized models with identical
+encoders and batches, apply both the stability and paired-comparison gates, and
+avoid any construction of test. If the development gate passes, freeze its
+selected random checkpoint epochs before any comparison on the already-
+consumed smoke split. Keep the reduced Phase 0 pipeline unchanged.

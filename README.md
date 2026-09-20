@@ -79,8 +79,9 @@ ni todos los experimentos del paper.
 El siguiente control pareado ya está congelado en
 [`paper_linear_random_control_smoke.yaml`](configs/paper_linear_random_control_smoke.yaml):
 repite seeds 5–9 con encoder y minibatches idénticos, cambiando únicamente
-`M_0` de identidad a Xavier uniforme. Todavía no fue ejecutado y su etapa de
-desarrollo no consulta test.
+`M_0` de identidad a Xavier uniforme. Sus métricas pareadas y controles de
+estructura ya están implementados y cubiertos por tests. Todavía no fue
+ejecutado y su etapa de desarrollo no consulta test.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

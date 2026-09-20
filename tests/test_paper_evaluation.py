@@ -5,12 +5,16 @@ import numpy as np
 from koopman_jepa.paper_config import (
     PaperLinearIdentityEvaluationConfig,
     PaperLinearIdentityHeldoutGateConfig,
+    PaperLinearRandomComparisonGateConfig,
     PaperSeedSweepConfig,
 )
 from koopman_jepa.paper_evaluation import (
     evaluate_paper_linear_identity,
     evaluate_paper_linear_identity_heldout_gate,
+    evaluate_paper_linear_random_comparison_gate,
+    evaluate_paper_linear_structure,
 )
+from koopman_jepa.paper_training import PaperSeedSummary
 
 
 def _separated_embeddings() -> np.ndarray:
@@ -145,3 +149,88 @@ def test_operator_evaluation_rejects_incompatible_shapes_and_nonfinite_data() ->
             np.array([[0.0, 1.0], [np.nan, 0.0]]),
             config,
         )
+
+
+def test_linear_structure_distinguishes_identity_from_dense_permutation() -> None:
+    identity = evaluate_paper_linear_structure(np.eye(4))
+    dense_control = evaluate_paper_linear_structure(
+        np.roll(np.eye(4), shift=1, axis=1)
+    )
+
+    assert identity.relative_identity_error == 0.0
+    assert identity.off_diagonal_fraction == 0.0
+    assert dense_control.relative_identity_error > 0.5
+    assert dense_control.off_diagonal_fraction == 1.0
+
+
+def _seed_summary(
+    seed: int,
+    *,
+    validation_loss: float,
+    validation_loss_ratio: float,
+) -> PaperSeedSummary:
+    return PaperSeedSummary(
+        seed=seed,
+        checkpoint_epoch=9,
+        train_loss=validation_loss / 3.0,
+        validation_loss=validation_loss,
+        validation_loss_ratio=validation_loss_ratio,
+        validation_train_loss_ratio=3.0,
+        validation_embedding_std_ratio=0.7,
+        validation_effective_rank=20.0,
+    )
+
+
+def test_random_comparison_uses_relative_improvement_and_requires_structure() -> None:
+    sweep = PaperSeedSweepConfig(seeds=(5, 6))
+    gate_config = PaperLinearRandomComparisonGateConfig()
+    identity = [
+        _seed_summary(5, validation_loss=0.0010, validation_loss_ratio=0.20),
+        _seed_summary(6, validation_loss=0.0012, validation_loss_ratio=0.25),
+    ]
+    random = [
+        _seed_summary(5, validation_loss=0.0030, validation_loss_ratio=0.30),
+        _seed_summary(6, validation_loss=0.0048, validation_loss_ratio=0.40),
+    ]
+    dense_matrix = np.roll(np.eye(4), shift=1, axis=1)
+
+    result = evaluate_paper_linear_random_comparison_gate(
+        identity,
+        random,
+        {5: dense_matrix, 6: dense_matrix},
+        sweep,
+        gate_config,
+    )
+    identity_matrix_failure = evaluate_paper_linear_random_comparison_gate(
+        identity,
+        random,
+        {5: dense_matrix, 6: np.eye(4)},
+        sweep,
+        gate_config,
+    )
+    missing_seed = evaluate_paper_linear_random_comparison_gate(
+        identity,
+        random[:-1],
+        {5: dense_matrix},
+        sweep,
+        gate_config,
+    )
+
+    assert result.passed
+    assert result.worst_validation_improvement_ratio == 1.6
+    assert result.worst_absolute_validation_loss_ratio == 4.0
+    assert result.predictive_comparability_passed
+    assert result.non_identity_passed
+    assert result.density_passed
+    assert not identity_matrix_failure.passed
+    assert identity_matrix_failure.failed_seeds == (6,)
+    assert not identity_matrix_failure.non_identity_passed
+    assert not identity_matrix_failure.density_passed
+    assert not missing_seed.passed
+    assert not missing_seed.all_seeds_present
+    assert missing_seed.failed_seeds == (6,)
+
+
+def test_linear_structure_rejects_nonfinite_matrix() -> None:
+    with np.testing.assert_raises_regex(ValueError, "finite"):
+        evaluate_paper_linear_structure(np.array([[1.0, np.nan], [0.0, 1.0]]))
