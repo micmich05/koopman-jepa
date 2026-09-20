@@ -102,7 +102,11 @@ rango efectivo. Los thresholds se fijaron antes de observar el test random. La
 partición ya fue consumida por la evaluación identidad, por lo que este control
 será predeclarado pero no una segunda prueba ciega independiente.
 Las métricas y el gate agregado ya están implementados y cubiertos por tests
-sintéticos; todavía no existe ni se ejecutó el notebook held-out pareado.
+sintéticos. El notebook held-out pareado está preparado, revisado y todavía
+sin ejecutar en
+[`paper_linear_random_heldout_smoke.ipynb`](notebooks/paper_linear_random_heldout_smoke.ipynb).
+Su única celda que construye test está protegida por el replay de los diez
+checkpoints y el pareo exacto de las inicializaciones de encoder.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

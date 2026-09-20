@@ -895,8 +895,19 @@ independently blind test claim.
 The metric implementation is complete in
 `src/koopman_jepa/paper_evaluation.py`. Synthetic tests cover exact predictor
 recovery, perfectly separated clusters, invalid labels and shapes, each gate
-family, missing seeds, and non-finite metrics. No paired held-out notebook or
-random test evaluation has been created or run.
+family, missing seeds, and non-finite metrics.
+
+The unexecuted notebook
+`notebooks/paper_linear_random_heldout_smoke.ipynb` now implements the frozen
+flow. It constructs only train and validation, recreates the five identity and
+five Xavier checkpoints, verifies paired initial encoder tensors and distinct
+predictor initializations, and sets a single authorization flag. Exactly one
+later code cell can instantiate `PaperRegimeDataset(..., "test", ...)`, and it
+asserts that flag first. The notebook then evaluates both conditions on the
+same ordered test loader, reports every seed, plots all absolute and relative
+gates, and generates a parameterized written interpretation. A source-level
+test protects the test-construction cell and its ordering. The notebook has no
+execution counts or outputs; no random held-out evaluation has been run.
 
 ## Training details absent from the paper
 
@@ -1032,8 +1043,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare the paired held-out notebook without outputs. It must reproduce all ten
-frozen checkpoints before enabling a later test-construction cell, evaluate the
-two conditions on the exact same test loader, report every per-seed and
-aggregate metric, and generate written plot interpretation. Review and commit
-that notebook before executing it. Keep the reduced Phase 0 pipeline unchanged.
+Review and commit the unexecuted paired held-out notebook. Only after that
+commit, execute it without changing code or configuration. Whether PASS or
+FAIL, audit its tables and plots, add a fixed post-run interpretation, and
+commit the consumed-test result without changing any threshold. Keep the
+reduced Phase 0 pipeline unchanged.
