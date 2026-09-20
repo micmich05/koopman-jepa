@@ -208,6 +208,14 @@ expandirá a cinco seeds. El próximo probe reducirá el learning rate después 
 mínimo temprano; seguirá siendo una estabilización local, no una receta
 atribuida al paper.
 
+El probe de step decay también está ejecutado en
+[`paper_mlp_step_decay_probe.ipynb`](notebooks/paper_mlp_step_decay_probe.ipynb)
+y dio `FAIL`. Bajar de `3e-4` a `3e-5` después de la época 2 reduce la explosión
+final de `1014×` a `716×`, pero no la elimina. El checkpoint sigue en época 2,
+con rango `7.87` y pureza `51.07%`: estabilizar parcialmente la cola no recupera
+los `65.48%` publicados. No se expandirá a cinco seeds ni se seguirá ajustando
+stabilizers como si fueran una explicación del clustering faltante.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

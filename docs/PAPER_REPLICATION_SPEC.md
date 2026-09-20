@@ -1133,6 +1133,22 @@ validation-loss ratios at most `0.5`, checkpoint effective rank at least `4`,
 and mean validation purity at least `49%`. This schedule is a local intervention
 absent from the paper. Test must remain unconstructed.
 
+The step-decay probe also produced `FAIL`. It reduced the epoch-20 validation
+ratio from `1014.3532` to `715.8364`, while clipping had worsened it to
+`1843.0214`, but the result remained far above the predeclared `0.5` limit.
+Maximum mean encoder/predictor gradient norms were still `860.20/1641.08`.
+The epoch-2 checkpoint preceded the decay and was effectively unchanged:
+effective rank `7.87` and purity `51.068% ± 0.997%`, versus `51.07%` for the
+constant-rate seed. The schedule attenuates but does not stop divergence and
+does not improve clustering, so it must not be expanded to five seeds.
+
+Together, the clipping and decay probes separate two issues: late optimization
+is unstable, but removing part of that instability does not close the purity
+gap at the best early checkpoint. Further tuning of stabilizers is not
+justified as a route to the reported `65.48%`. The next diagnostic should return
+to data/representation separability or obtain missing primary implementation
+details rather than add another optimization knob. Test remains untouched.
+
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
 same checkpoints and consumed test only to localize regime confusions, measure
@@ -1344,3 +1360,19 @@ loss was `1843.0214x` the untrained baseline and exceeded the unclipped
 `4655.94`. The epoch-2 checkpoint still had rank `7.88` and purity
 `50.998% ± 0.517%`, essentially the same as without clipping. The result does
 not justify a five-seed clipping sweep. Test was not constructed or consulted.
+
+The subsequent schedule protocol is frozen in
+`configs/paper_mlp_step_decay_probe.yaml` and executed in
+`notebooks/paper_mlp_step_decay_probe.ipynb`. It keeps `3e-4` for epochs 1–2,
+then uses `3e-5` for epochs 3–20 on the same medium-scale seed 10. Its expansion
+criteria matched the clipping probe except that no clipping-activation check
+was applicable.
+
+The schedule probe also failed. It reduced the final validation-loss ratio to
+`715.8364x`, but remained orders of magnitude beyond the `0.5` limit; maximum
+mean encoder/predictor gradient norms were `860.20/1641.08`. The selected
+epoch-2 checkpoint retained rank `7.87` and purity `51.068% ± 0.997%`, exactly
+the same practical clustering level as the constant-rate condition. This shows
+that late divergence is not the cause of the missing `14.4` purity points at
+the best checkpoint. No five-seed schedule sweep is justified. Test was not
+constructed or consulted.
