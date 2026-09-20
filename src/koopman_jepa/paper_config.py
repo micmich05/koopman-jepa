@@ -298,6 +298,53 @@ class PaperLinearRandomHeldoutGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PaperKMeansSweepConfig:
+    clusters: int = 18
+    n_init: int = 20
+    random_states: tuple[int, ...] = tuple(range(20))
+
+    def validate(self) -> None:
+        if self.clusters < 2:
+            raise ValueError("clusters must be at least two")
+        if self.n_init < 1:
+            raise ValueError("n_init must be positive")
+        if not self.random_states:
+            raise ValueError("random_states must not be empty")
+        if any(seed < 0 for seed in self.random_states):
+            raise ValueError("random_states must be non-negative")
+        if len(set(self.random_states)) != len(self.random_states):
+            raise ValueError("random_states must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class PaperMLPClusteringGateConfig:
+    min_overall_mean_purity: float = 0.60
+    min_worst_seed_mean_purity: float = 0.55
+    max_seed_mean_purity_coefficient_of_variation: float = 0.10
+    max_within_seed_purity_std: float = 0.03
+
+    def validate(self) -> None:
+        for name, value in (
+            ("min_overall_mean_purity", self.min_overall_mean_purity),
+            ("min_worst_seed_mean_purity", self.min_worst_seed_mean_purity),
+        ):
+            if not 0.0 < value <= 1.0:
+                raise ValueError(f"{name} must be in (0, 1]")
+        if self.min_worst_seed_mean_purity > self.min_overall_mean_purity:
+            raise ValueError(
+                "min_worst_seed_mean_purity must not exceed "
+                "min_overall_mean_purity"
+            )
+        if self.max_seed_mean_purity_coefficient_of_variation < 0.0:
+            raise ValueError(
+                "max_seed_mean_purity_coefficient_of_variation "
+                "must be non-negative"
+            )
+        if not 0.0 <= self.max_within_seed_purity_std <= 1.0:
+            raise ValueError("max_within_seed_purity_std must be in [0, 1]")
+
+
+@dataclass(frozen=True, slots=True)
 class PaperExperimentConfig:
     data: PaperDataConfig
     model: PaperModelConfig
@@ -478,6 +525,41 @@ class PaperLinearRandomHeldoutConfig:
             raise ValueError("min_random_test_effective_rank must not exceed latent_dim")
 
 
+@dataclass(frozen=True, slots=True)
+class PaperMLPClusteringDevelopmentConfig:
+    data: PaperDataConfig
+    model: PaperModelConfig
+    train: PaperTrainConfig
+    checkpoint_gate: PaperValidationGateConfig
+    sweep: PaperSeedSweepConfig
+    stability_gate: PaperScaleInvariantStabilityGateConfig
+    clustering: PaperKMeansSweepConfig
+    clustering_gate: PaperMLPClusteringGateConfig
+
+    def validate(self) -> None:
+        self.data.validate()
+        self.model.validate()
+        self.train.validate()
+        self.checkpoint_gate.validate()
+        self.sweep.validate()
+        self.stability_gate.validate()
+        self.clustering.validate()
+        self.clustering_gate.validate()
+        if self.model.predictor_kind != "mlp":
+            raise ValueError("MLP clustering development requires an MLP predictor")
+        if self.model.mlp_depth != "two_hidden":
+            raise ValueError(
+                "primary MLP clustering development requires two hidden layers"
+            )
+        if self.checkpoint_gate.final_window > self.train.epochs:
+            raise ValueError("final_window must not exceed training epochs")
+        validation_samples = (
+            self.data.val_per_regime * self.clustering.clusters
+        )
+        if validation_samples < self.clustering.clusters:
+            raise ValueError("validation split must cover all configured clusters")
+
+
 def load_paper_experiment_config(path: str | Path) -> PaperExperimentConfig:
     with Path(path).open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
@@ -643,6 +725,37 @@ def load_paper_linear_random_heldout_config(
             **raw.get("evaluation", {})
         ),
         gate=PaperLinearRandomHeldoutGateConfig(**raw.get("gate", {})),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_mlp_clustering_development_config(
+    path: str | Path,
+) -> PaperMLPClusteringDevelopmentConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (10, 11, 12, 13, 14))
+    clustering_raw = raw.get("clustering", {})
+    random_states = clustering_raw.get("random_states", tuple(range(20)))
+    clustering_values = {
+        **clustering_raw,
+        "random_states": tuple(random_states),
+    }
+    config = PaperMLPClusteringDevelopmentConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        stability_gate=PaperScaleInvariantStabilityGateConfig(
+            **raw.get("stability_gate", {})
+        ),
+        clustering=PaperKMeansSweepConfig(**clustering_values),
+        clustering_gate=PaperMLPClusteringGateConfig(
+            **raw.get("clustering_gate", {})
+        ),
     )
     config.validate()
     return config

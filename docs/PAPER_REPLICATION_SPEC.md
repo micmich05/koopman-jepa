@@ -1075,12 +1075,10 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze the first MLP clustering development protocol using train/validation
-only and a fresh data realization. Its purpose is to approach the paper's main
-reported `65.48%` purity result before any new test is opened. Predeclare
-K-means aggregation across multiple random states and uncertainty across model
-seeds so a single clustering initialization cannot decide the result. Keep the
-consumed linear smoke, its FAIL, and this exploratory diagnosis unchanged.
+Implement and unit-test the aggregated MLP validation-clustering metrics and
+their global gate. Do not prepare or execute the training notebook until the
+metric definitions pass synthetic tests. Keep test uninstantiated and the
+consumed linear result unchanged.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1115,3 +1113,40 @@ Hungarian alignment; it is not the sole source of low purity.
 This post-hoc evidence diagnoses small-sample and clustering-instability issues
 but does not change any threshold, seed, or conclusion. The paired smoke result
 remains FAIL.
+
+### Frozen MLP clustering development protocol (not yet executed)
+
+`configs/paper_mlp_clustering_development.yaml` freezes the first direct step
+toward the paper's main `65.48%` MLP-purity result. This is a development
+condition, not the final paper-scale test. It uses a fresh synthetic realization
+with `base_seed = 1`, model seeds `10–14`, 64 train and 32 validation masters per
+regime, and 20 epochs. The test allocation is present only to freeze future
+split geometry and must not be instantiated during development.
+
+The primary local architecture follows the appendix-table reading:
+`32 -> 64 -> 64 -> 32`, with ReLU after both hidden layers. The direct
+`6144 -> 32` encoder projection, AdamW settings, EMA decay, checkpoint
+constraints, and per-sequence normalization remain unchanged. The contradictory
+one-hidden-layer prose reading remains a later sensitivity rather than a
+simultaneous tuning choice.
+
+For each selected model checkpoint, validation clustering uses `K = 18` and
+the arithmetic mean across K-means `random_state = 0..19`, each with
+`n_init = 20`. This aggregation is fixed before training because the consumed
+linear diagnostic showed that one K-means seed can move purity by several
+percentage points. Ground-truth labels score clusters but do not train the
+encoder or select the checkpoint.
+
+The development clustering gate requires all of the following:
+
+- overall mean validation purity across model seeds at least `0.60`;
+- worst model-seed mean purity at least `0.55`;
+- coefficient of variation of model-seed mean purities at most `0.10`;
+- worst within-model-seed purity standard deviation across K-means states at
+  most `0.03`.
+
+The unchanged scale-invariant prediction, validation/train-gap, embedding
+spread, and effective-rank gates must also pass. These are local readiness
+criteria for deciding whether to scale, not an equivalence test against the
+paper's `65.48%` held-out value. No MLP training or test evaluation has yet
+been run under this protocol.

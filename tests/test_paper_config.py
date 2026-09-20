@@ -9,6 +9,7 @@ from koopman_jepa.paper_config import (
     load_paper_linear_identity_heldout_config,
     load_paper_linear_random_control_config,
     load_paper_linear_random_heldout_config,
+    load_paper_mlp_clustering_development_config,
     load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
@@ -220,4 +221,49 @@ def test_linear_random_heldout_config_rejects_unfrozen_random_epochs() -> None:
     )
 
     with np.testing.assert_raises_regex(ValueError, "random checkpoint epochs"):
+        invalid.validate()
+
+
+def test_mlp_clustering_development_uses_fresh_data_and_aggregated_kmeans() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_mlp_clustering_development.yaml"
+    )
+
+    config = load_paper_mlp_clustering_development_config(path)
+
+    assert config.data.base_seed == 1
+    assert config.data.train_per_regime == 64
+    assert config.data.val_per_regime == 32
+    assert config.data.test_per_regime == 64
+    assert config.model.predictor_kind == "mlp"
+    assert config.model.mlp_depth == "two_hidden"
+    assert config.train.epochs == 20
+    assert config.sweep.seeds == (10, 11, 12, 13, 14)
+    assert config.clustering.clusters == 18
+    assert config.clustering.n_init == 20
+    assert config.clustering.random_states == tuple(range(20))
+    assert config.clustering_gate.min_overall_mean_purity == 0.60
+    assert config.clustering_gate.min_worst_seed_mean_purity == 0.55
+    assert (
+        config.clustering_gate.max_seed_mean_purity_coefficient_of_variation
+        == 0.10
+    )
+    assert config.clustering_gate.max_within_seed_purity_std == 0.03
+
+
+def test_mlp_clustering_development_rejects_linear_predictor() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_mlp_clustering_development.yaml"
+    )
+    config = load_paper_mlp_clustering_development_config(path)
+    invalid = replace(
+        config,
+        model=replace(config.model, predictor_kind="linear"),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "requires an MLP predictor"):
         invalid.validate()

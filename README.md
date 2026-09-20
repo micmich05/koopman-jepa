@@ -123,6 +123,14 @@ La pareja de senos indistinguible permanece dentro del par sólo 53.8% de las
 veces en random, así que explica parte, pero no todo, del clustering débil. Este
 diagnóstico no modifica el `FAIL` ni crea una nueva decisión sobre test.
 
+El siguiente experimento está congelado, pero todavía no ejecutado, en
+[`paper_mlp_clustering_development.yaml`](configs/paper_mlp_clustering_development.yaml).
+Usa una realización nueva (`base_seed=1`), 64/32 ejemplos train/validation por
+régimen, seeds de modelo 10–14 y el MLP `32→64→64→32`. La pureza de validation
+se promediará sobre 20 `random_state` de K-means, todos con `n_init=20`. El gate
+de desarrollo exige media global ≥60%, peor seed ≥55%, CV entre seeds ≤10% y
+desviación intra-seed ≤3 puntos. Test no se construirá en esta etapa.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por
