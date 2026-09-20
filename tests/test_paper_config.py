@@ -7,6 +7,7 @@ from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
     load_paper_experiment_config,
     load_paper_linear_identity_heldout_config,
+    load_paper_linear_random_control_config,
     load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
@@ -134,4 +135,46 @@ def test_linear_identity_heldout_config_rejects_random_predictor() -> None:
     )
 
     with np.testing.assert_raises_regex(ValueError, "identity initialization"):
+        invalid.validate()
+
+
+def test_linear_random_control_config_freezes_paired_comparison() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_random_control_smoke.yaml"
+    )
+
+    config = load_paper_linear_random_control_config(path)
+
+    assert config.data.base_seed == 0
+    assert config.model.predictor_kind == "linear"
+    assert config.model.linear_initialization == "xavier_uniform"
+    assert config.sweep.seeds == (5, 6, 7, 8, 9)
+    assert config.identity_replay.expected_epochs == (10, 10, 10, 8, 10)
+    assert (
+        config.stability_gate.max_validation_loss_ratio_coefficient_of_variation
+        == 0.25
+    )
+    assert (
+        config.comparison_gate.max_random_to_identity_validation_improvement_ratio
+        == 2.0
+    )
+    assert config.comparison_gate.min_random_relative_identity_error == 0.50
+    assert config.comparison_gate.min_random_off_diagonal_fraction == 0.50
+
+
+def test_linear_random_control_config_rejects_identity_initialization() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_linear_random_control_smoke.yaml"
+    )
+    config = load_paper_linear_random_control_config(path)
+    invalid = replace(
+        config,
+        model=replace(config.model, linear_initialization="identity"),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "Xavier-uniform"):
         invalid.validate()

@@ -75,6 +75,31 @@ def test_linear_predictor_initialization_variants() -> None:
     assert not torch.equal(random.matrix, expected_identity)
 
 
+def test_paired_predictor_initializations_preserve_identical_encoders() -> None:
+    torch.manual_seed(41)
+    identity = PaperTemporalJEPA(
+        PaperModelConfig(linear_initialization="identity")
+    )
+    torch.manual_seed(41)
+    random = PaperTemporalJEPA(
+        PaperModelConfig(linear_initialization="xavier_uniform")
+    )
+
+    for identity_tensor, random_tensor in zip(
+        identity.online_encoder.state_dict().values(),
+        random.online_encoder.state_dict().values(),
+        strict=True,
+    ):
+        assert torch.equal(identity_tensor, random_tensor)
+    for identity_tensor, random_tensor in zip(
+        identity.target_encoder.state_dict().values(),
+        random.target_encoder.state_dict().values(),
+        strict=True,
+    ):
+        assert torch.equal(identity_tensor, random_tensor)
+    assert not torch.equal(identity.predictor.matrix, random.predictor.matrix)
+
+
 def test_mlp_depth_variants_match_named_architectures() -> None:
     one_hidden = PaperMLPPredictor(depth="one_hidden")
     two_hidden = PaperMLPPredictor(depth="two_hidden")

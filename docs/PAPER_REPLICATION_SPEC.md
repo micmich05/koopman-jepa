@@ -738,6 +738,59 @@ masters per regime, the paper does not report seed dispersion, and the active
 spectral-rank definition is underspecified. This test split is now consumed for
 the frozen smoke protocol.
 
+### Frozen randomly initialized linear control (not yet executed)
+
+`configs/paper_linear_random_control_smoke.yaml` freezes the paired control for
+the paper's claim that random predictor initialization reaches similarly low
+prediction loss while producing a dense, non-identity matrix. Its first stage
+uses train and validation only; it does not instantiate test.
+
+For each seed `5–9`, the identity and random conditions reset Python, NumPy,
+and PyTorch to the same seed before model construction. Both constructors build
+the online encoder and copy the EMA target before applying their named linear
+predictor initialization. A unit test verifies exact equality of every online
+and target encoder tensor and inequality of the predictor matrices. The data
+realization, minibatch generator, optimizer, schedule, and validation
+checkpoint constraints are unchanged. Thus the intended treatment difference
+is only `M_0 = I` versus Xavier-uniform `M_0`.
+
+The development stage first replays the committed identity checkpoints at
+epochs `(10, 10, 10, 8, 10)`. It then trains and selects the random condition
+without consulting the identity test metrics. The random checkpoints must pass
+the same scale-invariant stability gate:
+
+- every seed produces a constraint-eligible checkpoint;
+- worst validation/baseline ratio at most `0.50`;
+- worst validation/train ratio at most `4.0`;
+- CV of validation/baseline ratios at most `0.25`;
+- worst dispersion retention at least `0.10`;
+- worst effective rank at least `4.0`.
+
+For paired predictive comparability, define for each seed
+
+```text
+q_s = (random selected validation / random epoch-0 validation)
+      / (identity selected validation / identity epoch-0 validation).
+```
+
+Every `q_s` must be at most `2.0`. This compares relative improvement and is
+invariant to a separate global latent rescaling of either condition. Paired
+absolute validation-loss ratios will still be reported as diagnostics but do
+not decide the gate.
+
+The structural control is evaluated from predictor weights only, without any
+held-out data. Every random checkpoint must have:
+
+- relative identity error `||M-I||_F / ||M||_F` at least `0.50`;
+- off-diagonal fraction `||M-diag(M)||_F / ||M||_F` at least `0.50`.
+
+These are local operational definitions of the paper's qualitative words
+“non-identity” and “dense”; the authors report no corresponding thresholds.
+Passing this development protocol will freeze the random checkpoints before
+any paired evaluation on the already-consumed smoke test. Such a later
+comparison can still test the predeclared control, but it will not constitute a
+second independently blind use of that split.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -872,9 +925,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze the next experiment before running it. The nearest paper control is the
-randomly initialized linear predictor, but reusing this now-consumed smoke test
-would make that comparison confirmatory only with respect to a newly frozen
-control protocol, not independently blind. Alternatively, scale the identity
-condition to the published dataset size before opening a fresh paper-scale test
-split. Keep the reduced Phase 0 pipeline unchanged.
+Implement and unit-test the paired random-control comparison metrics, then
+prepare an unexecuted train/validation notebook. Do not instantiate test in
+that notebook. If the development gate passes, freeze its selected random
+checkpoint epochs before any comparison on the already-consumed smoke split.
+Keep the reduced Phase 0 pipeline unchanged.

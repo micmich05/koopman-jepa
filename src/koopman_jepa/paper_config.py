@@ -238,6 +238,24 @@ class PaperLinearIdentityHeldoutGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PaperLinearRandomComparisonGateConfig:
+    max_random_to_identity_validation_improvement_ratio: float = 2.0
+    min_random_relative_identity_error: float = 0.50
+    min_random_off_diagonal_fraction: float = 0.50
+
+    def validate(self) -> None:
+        if self.max_random_to_identity_validation_improvement_ratio < 1.0:
+            raise ValueError(
+                "max_random_to_identity_validation_improvement_ratio "
+                "must be at least one"
+            )
+        if self.min_random_relative_identity_error <= 0.0:
+            raise ValueError("min_random_relative_identity_error must be positive")
+        if not 0.0 < self.min_random_off_diagonal_fraction <= 1.0:
+            raise ValueError("min_random_off_diagonal_fraction must be in (0, 1]")
+
+
+@dataclass(frozen=True, slots=True)
 class PaperExperimentConfig:
     data: PaperDataConfig
     model: PaperModelConfig
@@ -343,6 +361,39 @@ class PaperLinearIdentityHeldoutConfig:
             raise ValueError("min_test_effective_rank must not exceed latent_dim")
 
 
+@dataclass(frozen=True, slots=True)
+class PaperLinearRandomControlConfig:
+    data: PaperDataConfig
+    model: PaperModelConfig
+    train: PaperTrainConfig
+    checkpoint_gate: PaperValidationGateConfig
+    sweep: PaperSeedSweepConfig
+    identity_replay: PaperCheckpointReplayConfig
+    stability_gate: PaperScaleInvariantStabilityGateConfig
+    comparison_gate: PaperLinearRandomComparisonGateConfig
+
+    def validate(self) -> None:
+        self.data.validate()
+        self.model.validate()
+        self.train.validate()
+        self.checkpoint_gate.validate()
+        self.sweep.validate()
+        self.identity_replay.validate()
+        self.stability_gate.validate()
+        self.comparison_gate.validate()
+        if self.model.predictor_kind != "linear":
+            raise ValueError("random control requires a linear predictor")
+        if self.model.linear_initialization != "xavier_uniform":
+            raise ValueError("random control requires Xavier-uniform initialization")
+        if len(self.identity_replay.expected_epochs) != len(self.sweep.seeds):
+            raise ValueError("identity checkpoint epochs must align with sweep seeds")
+        if any(
+            epoch > self.train.epochs
+            for epoch in self.identity_replay.expected_epochs
+        ):
+            raise ValueError("identity checkpoint epochs must not exceed training epochs")
+
+
 def load_paper_experiment_config(path: str | Path) -> PaperExperimentConfig:
     with Path(path).open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
@@ -435,6 +486,39 @@ def load_paper_linear_identity_heldout_config(
             **raw.get("evaluation", {})
         ),
         gate=PaperLinearIdentityHeldoutGateConfig(**raw.get("gate", {})),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_linear_random_control_config(
+    path: str | Path,
+) -> PaperLinearRandomControlConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (5, 6, 7, 8, 9))
+    identity_epochs = raw.get("identity_replay", {}).get(
+        "expected_epochs",
+        (10, 10, 10, 8, 10),
+    )
+    identity_replay_raw = {
+        **raw.get("identity_replay", {}),
+        "expected_epochs": tuple(identity_epochs),
+    }
+    config = PaperLinearRandomControlConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        identity_replay=PaperCheckpointReplayConfig(**identity_replay_raw),
+        stability_gate=PaperScaleInvariantStabilityGateConfig(
+            **raw.get("stability_gate", {})
+        ),
+        comparison_gate=PaperLinearRandomComparisonGateConfig(
+            **raw.get("comparison_gate", {})
+        ),
     )
     config.validate()
     return config
