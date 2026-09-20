@@ -554,7 +554,7 @@ This scale-free statistic was not preregistered and therefore does not change
 the FAIL. It motivates a separately versioned stability protocol whose metric
 is explicitly invariant to latent scale. Test remains untouched meanwhile.
 
-### Frozen scale-invariant stability protocol (not yet executed)
+### Executed scale-invariant stability protocol
 
 `configs/paper_seed_stability_scale_invariant.yaml` freezes the follow-up
 protocol before observing its outcomes. It keeps the dataset realization,
@@ -587,12 +587,38 @@ The gate passes only if all of the following hold simultaneously:
 - the worst validation-dispersion retention is at least `0.10`;
 - the worst validation effective rank is at least `4.0`.
 
-This revision tests repeatability of *relative predictive improvement* under
-optimization seeds. It does not prove that the latent coordinate system itself
-is stable, does not measure dataset-sampling variability, and does not yet
-reproduce the paper's clustering or operator diagnostics. The protocol must be
-executed and interpreted in a notebook before deciding whether to unlock the
-held-out test split.
+The executed notebook
+`notebooks/paper_seed_stability_scale_invariant.ipynb` passes the frozen v2
+gate on the fresh seeds:
+
+| Diagnostic | Executed result | Gate |
+|---|---:|---:|
+| Selected epochs for seeds 5–9 | 10, 10, 10, 8, 10 | all required |
+| CV of selected validation/baseline ratios | 0.2388 | at most 0.25 |
+| CV of selected absolute validation loss | 0.2508 | diagnostic only |
+| Worst validation/baseline loss ratio | 0.3374 | at most 0.50 |
+| Worst validation/train loss ratio | 3.510 | at most 4.0 |
+| Worst validation-dispersion retention | 0.6648 | at least 0.10 |
+| Worst validation effective rank | 18.609 | at least 4.0 |
+| All checkpoint metrics finite | yes | required |
+
+Seed 8 exceeds the validation/train limit after epoch 8, so the constrained
+policy rejects its later epochs and selects epoch 8. The other four seeds
+remain eligible at epoch 10. None of the selected representations is close to
+the preregistered collapse limits.
+
+The variability result is a narrow pass: `0.2388` is only `0.0112` below the
+`0.25` cutoff. Moreover, scale normalization reduces the observed CV by only
+`0.0120` relative to the absolute-loss diagnostic. The result is compatible
+with latent-scale sensitivity and confirms the revised rule on seeds not used
+to design it, but it is not strong evidence that scaling explains all
+cross-seed variability.
+
+This revision establishes limited repeatability of *relative predictive
+improvement* under optimization seeds on one fixed development dataset. It
+does not prove that the latent coordinate system itself is stable, does not
+measure dataset-sampling variability, and does not reproduce the paper's
+clustering or operator diagnostics. Test was not instantiated or consulted.
 
 ## Training details absent from the paper
 
@@ -728,11 +754,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Execute the frozen scale-invariant stability protocol for seeds 5–9 in
-`notebooks/paper_seed_stability_scale_invariant.ipynb`, including per-seed
-trajectories, selected checkpoints, both
-variability statistics, and a written interpretation of every gate. Keep the
-test split unopened during this run. If the gate passes, freeze the first
-held-out evaluation protocol before opening test; if it fails, diagnose the
-failed criterion without weakening it retrospectively. Keep the reduced Phase
-0 pipeline unchanged.
+Freeze the held-out evaluation and checkpoint-persistence protocol before
+opening test. The next implementation must reproduce the constraint-selected
+model state for each seed, verify its train/validation metrics, and predefine
+the linear-operator diagnostics to compute on test. Do not instantiate test
+until that code and its decision rules are committed. Keep the reduced Phase 0
+pipeline unchanged.

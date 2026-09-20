@@ -56,9 +56,13 @@ permanece cerrado. El protocolo siguiente ya está congelado en
 repite la misma condición con seeds nuevas 5–9 y usa el CV de los ratios
 validation/baseline como criterio de variabilidad, manteniendo todos los demás
 límites. La loss absoluta seguirá reportándose sólo como diagnóstico. Este
-protocolo está preparado, todavía sin ejecutar, en
+protocolo fue ejecutado en
 [`paper_seed_stability_scale_invariant.ipynb`](notebooks/paper_seed_stability_scale_invariant.ipynb)
-y no autoriza abrir test hasta que pase.
+y pasa por margen estrecho: CV relativo 0.239 frente al máximo 0.25, con CV
+absoluto diagnóstico 0.251. Las cinco seeds producen checkpoints elegibles y
+los controles de brecha, dispersión y rango pasan. Esto habilita diseñar y
+congelar la evaluación held-out; todavía no reproduce los resultados del paper
+ni autoriza consultar test sin ese protocolo previo.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
