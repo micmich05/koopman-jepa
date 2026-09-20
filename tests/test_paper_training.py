@@ -7,6 +7,7 @@ from torch.utils.data import TensorDataset
 from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
     PaperOverfitGateConfig,
+    PaperScaleInvariantStabilityGateConfig,
     PaperSeedStabilityGateConfig,
     PaperSeedSweepConfig,
     PaperTrainConfig,
@@ -18,6 +19,7 @@ from koopman_jepa.paper_training import (
     PaperSeedSummary,
     PaperStepMetrics,
     evaluate_overfit_gate,
+    evaluate_scale_invariant_seed_stability_gate,
     evaluate_seed_stability_gate,
     evaluate_validation_gate,
     make_paper_optimizer,
@@ -316,6 +318,74 @@ def test_seed_stability_gate_requires_every_seed_and_low_variability() -> None:
     assert result.validation_loss_coefficient_of_variation < 0.25
     assert not missing.passed
     assert not missing.all_checkpoints_selected
+
+
+def test_scale_invariant_gate_uses_relative_not_absolute_loss_variability() -> None:
+    sweep = PaperSeedSweepConfig(seeds=(5, 6, 7, 8, 9))
+    gate = PaperScaleInvariantStabilityGateConfig()
+    absolute_losses = (0.001, 0.002, 0.003, 0.004, 0.005)
+    relative_losses = (0.20, 0.21, 0.22, 0.21, 0.20)
+    summaries = [
+        PaperSeedSummary(
+            seed=seed,
+            checkpoint_epoch=9,
+            train_loss=validation_loss / 3.0,
+            validation_loss=validation_loss,
+            validation_loss_ratio=validation_loss_ratio,
+            validation_train_loss_ratio=3.0,
+            validation_embedding_std_ratio=0.65,
+            validation_effective_rank=19.0,
+        )
+        for seed, validation_loss, validation_loss_ratio in zip(
+            sweep.seeds,
+            absolute_losses,
+            relative_losses,
+            strict=True,
+        )
+    ]
+
+    result = evaluate_scale_invariant_seed_stability_gate(summaries, sweep, gate)
+    missing = evaluate_scale_invariant_seed_stability_gate(
+        summaries[:-1],
+        sweep,
+        gate,
+    )
+
+    assert result.passed
+    assert result.variability_passed
+    assert result.validation_loss_ratio_coefficient_of_variation < 0.25
+    assert result.absolute_validation_loss_coefficient_of_variation > 0.25
+    assert not missing.passed
+    assert not missing.all_checkpoints_selected
+
+
+def test_scale_invariant_gate_rejects_variable_relative_improvement() -> None:
+    sweep = PaperSeedSweepConfig(seeds=(5, 6, 7, 8, 9))
+    gate = PaperScaleInvariantStabilityGateConfig()
+    relative_losses = (0.05, 0.10, 0.20, 0.30, 0.40)
+    summaries = [
+        PaperSeedSummary(
+            seed=seed,
+            checkpoint_epoch=9,
+            train_loss=0.0005,
+            validation_loss=0.001,
+            validation_loss_ratio=validation_loss_ratio,
+            validation_train_loss_ratio=2.0,
+            validation_embedding_std_ratio=0.65,
+            validation_effective_rank=19.0,
+        )
+        for seed, validation_loss_ratio in zip(
+            sweep.seeds,
+            relative_losses,
+            strict=True,
+        )
+    ]
+
+    result = evaluate_scale_invariant_seed_stability_gate(summaries, sweep, gate)
+
+    assert not result.passed
+    assert not result.variability_passed
+    assert result.validation_loss_ratio_coefficient_of_variation > 0.25
 
 
 def test_seed_summary_preserves_constraint_eligible_selection() -> None:

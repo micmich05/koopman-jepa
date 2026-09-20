@@ -554,6 +554,46 @@ This scale-free statistic was not preregistered and therefore does not change
 the FAIL. It motivates a separately versioned stability protocol whose metric
 is explicitly invariant to latent scale. Test remains untouched meanwhile.
 
+### Frozen scale-invariant stability protocol (not yet executed)
+
+`configs/paper_seed_stability_scale_invariant.yaml` freezes the follow-up
+protocol before observing its outcomes. It keeps the dataset realization,
+architecture, optimizer, ten-epoch schedule, checkpoint-selection rule, and
+all worst-case thresholds unchanged. It uses fresh training seeds
+`5, 6, 7, 8, 9`, so the same seed results that motivated the revision cannot
+also validate it. Test remains unused.
+
+The only changed aggregate criterion is the definition of cross-seed
+variability. For each seed `s`, let
+
+```text
+r_s = selected validation loss_s / epoch-0 validation loss_s.
+```
+
+The v2 gate requires the population coefficient of variation of the five
+`r_s` values to be at most `0.25`. This quantity is invariant to multiplying
+all embeddings from one seed by a seed-specific constant, because both losses
+for that seed scale by the same squared constant. The CV of the selected
+absolute validation losses is still recorded, but it is diagnostic and cannot
+make the v2 gate pass or fail.
+
+The gate passes only if all of the following hold simultaneously:
+
+- every seed produces one constraint-eligible checkpoint;
+- all checkpoint metrics are finite;
+- the worst validation/baseline ratio is at most `0.50`;
+- the worst validation/train ratio is at most `4.0`;
+- the CV of validation/baseline ratios is at most `0.25`;
+- the worst validation-dispersion retention is at least `0.10`;
+- the worst validation effective rank is at least `4.0`.
+
+This revision tests repeatability of *relative predictive improvement* under
+optimization seeds. It does not prove that the latent coordinate system itself
+is stable, does not measure dataset-sampling variability, and does not yet
+reproduce the paper's clustering or operator diagnostics. The protocol must be
+executed and interpreted in a notebook before deciding whether to unlock the
+held-out test split.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -688,8 +728,10 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Implement and unit-test the published model as named architecture variants,
-because the encoder projection and MLP depth are internally inconsistent in the
-paper. Do not start a full training run until shape tests, initialization tests,
-EMA tests, and a one-batch optimization smoke test pass for both preprocessing
-conditions. Keep the reduced Phase 0 pipeline unchanged.
+Execute the frozen scale-invariant stability protocol for seeds 5–9 in a new
+notebook, including per-seed trajectories, selected checkpoints, both
+variability statistics, and a written interpretation of every gate. Keep the
+test split unopened during this run. If the gate passes, freeze the first
+held-out evaluation protocol before opening test; if it fails, diagnose the
+failed criterion without weakening it retrospectively. Keep the reduced Phase
+0 pipeline unchanged.

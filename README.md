@@ -51,8 +51,12 @@ encuentra checkpoints válidos para seeds 0–4, pero el gate global falla: el C
 de las validation loss absolutas es 0.288 frente al límite 0.25. Los demás
 criterios pasan. Como diagnóstico, el CV de los ratios validation/baseline es
 0.210, pero no estaba predefinido y no convierte el resultado en PASS. Test
-permanece cerrado mientras se diseña un protocolo de estabilidad invariante a
-la escala latente.
+permanece cerrado. El protocolo siguiente ya está congelado en
+[`paper_seed_stability_scale_invariant.yaml`](configs/paper_seed_stability_scale_invariant.yaml):
+repite la misma condición con seeds nuevas 5–9 y usa el CV de los ratios
+validation/baseline como criterio de variabilidad, manteniendo todos los demás
+límites. La loss absoluta seguirá reportándose sólo como diagnóstico. Este
+protocolo todavía no fue ejecutado y no autoriza abrir test hasta que pase.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

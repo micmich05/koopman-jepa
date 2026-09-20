@@ -5,6 +5,7 @@ import numpy as np
 from koopman_jepa.paper_config import (
     PaperOptimizationConfig,
     load_paper_experiment_config,
+    load_paper_scale_invariant_seed_stability_config,
     load_paper_seed_stability_config,
     load_paper_train_validation_config,
 )
@@ -71,3 +72,22 @@ def test_seed_stability_config_reuses_data_and_freezes_five_seeds() -> None:
     assert config.stability_gate.max_worst_validation_loss_ratio == 0.50
     assert config.stability_gate.max_worst_validation_train_loss_ratio == 4.0
     assert config.stability_gate.max_validation_loss_coefficient_of_variation == 0.25
+
+
+def test_scale_invariant_stability_config_uses_fresh_seeds() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "configs"
+        / "paper_seed_stability_scale_invariant.yaml"
+    )
+
+    config = load_paper_scale_invariant_seed_stability_config(path)
+
+    assert config.data.base_seed == 0
+    assert config.sweep.seeds == (5, 6, 7, 8, 9)
+    assert config.train.seed == 5
+    assert config.checkpoint_gate.max_validation_train_loss_ratio == 4.0
+    assert (
+        config.stability_gate.max_validation_loss_ratio_coefficient_of_variation
+        == 0.25
+    )

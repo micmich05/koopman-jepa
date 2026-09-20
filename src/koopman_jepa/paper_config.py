@@ -151,6 +151,36 @@ class PaperSeedStabilityGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PaperScaleInvariantStabilityGateConfig:
+    max_worst_validation_loss_ratio: float = 0.50
+    max_worst_validation_train_loss_ratio: float = 4.0
+    max_validation_loss_ratio_coefficient_of_variation: float = 0.25
+    min_worst_validation_embedding_std_ratio: float = 0.10
+    min_worst_validation_effective_rank: float = 4.0
+
+    def validate(self) -> None:
+        if not 0.0 < self.max_worst_validation_loss_ratio < 1.0:
+            raise ValueError(
+                "max_worst_validation_loss_ratio must be between zero and one"
+            )
+        if self.max_worst_validation_train_loss_ratio < 1.0:
+            raise ValueError(
+                "max_worst_validation_train_loss_ratio must be at least one"
+            )
+        if self.max_validation_loss_ratio_coefficient_of_variation < 0.0:
+            raise ValueError(
+                "max_validation_loss_ratio_coefficient_of_variation "
+                "must be non-negative"
+            )
+        if not 0.0 < self.min_worst_validation_embedding_std_ratio <= 1.0:
+            raise ValueError(
+                "min_worst_validation_embedding_std_ratio must be in (0, 1]"
+            )
+        if self.min_worst_validation_effective_rank < 1.0:
+            raise ValueError("min_worst_validation_effective_rank must be at least one")
+
+
+@dataclass(frozen=True, slots=True)
 class PaperExperimentConfig:
     data: PaperDataConfig
     model: PaperModelConfig
@@ -190,6 +220,26 @@ class PaperSeedStabilityConfig:
     checkpoint_gate: PaperValidationGateConfig
     sweep: PaperSeedSweepConfig
     stability_gate: PaperSeedStabilityGateConfig
+
+    def validate(self) -> None:
+        self.data.validate()
+        self.model.validate()
+        self.train.validate()
+        self.checkpoint_gate.validate()
+        self.sweep.validate()
+        self.stability_gate.validate()
+        if self.checkpoint_gate.final_window > self.train.epochs:
+            raise ValueError("final_window must not exceed training epochs")
+
+
+@dataclass(frozen=True, slots=True)
+class PaperScaleInvariantSeedStabilityConfig:
+    data: PaperDataConfig
+    model: PaperModelConfig
+    train: PaperTrainConfig
+    checkpoint_gate: PaperValidationGateConfig
+    sweep: PaperSeedSweepConfig
+    stability_gate: PaperScaleInvariantStabilityGateConfig
 
     def validate(self) -> None:
         self.data.validate()
@@ -242,6 +292,27 @@ def load_paper_seed_stability_config(path: str | Path) -> PaperSeedStabilityConf
         checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
         sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
         stability_gate=PaperSeedStabilityGateConfig(**raw.get("stability_gate", {})),
+    )
+    config.validate()
+    return config
+
+
+def load_paper_scale_invariant_seed_stability_config(
+    path: str | Path,
+) -> PaperScaleInvariantSeedStabilityConfig:
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+
+    sweep_values = raw.get("sweep", {}).get("seeds", (5, 6, 7, 8, 9))
+    config = PaperScaleInvariantSeedStabilityConfig(
+        data=PaperDataConfig(**raw.get("data", {})),
+        model=PaperModelConfig(**raw.get("model", {})),
+        train=PaperTrainConfig(**raw.get("train", {})),
+        checkpoint_gate=PaperValidationGateConfig(**raw.get("checkpoint_gate", {})),
+        sweep=PaperSeedSweepConfig(seeds=tuple(sweep_values)),
+        stability_gate=PaperScaleInvariantStabilityGateConfig(
+            **raw.get("stability_gate", {})
+        ),
     )
     config.validate()
     return config
