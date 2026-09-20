@@ -99,9 +99,52 @@ def clustering_scores(
     num_regimes: int,
     seed: int,
 ) -> dict[str, float]:
+    diagnostics = clustering_diagnostics(
+        embeddings,
+        labels,
+        num_regimes,
+        seed,
+    )
+    return {
+        "kmeans_purity": diagnostics["kmeans_purity"],
+        "kmeans_matched_accuracy": diagnostics["kmeans_matched_accuracy"],
+    }
+
+
+def clustering_diagnostics(
+    embeddings: np.ndarray,
+    labels: np.ndarray,
+    num_regimes: int,
+    seed: int,
+    *,
+    n_init: int = 20,
+) -> dict[str, Any]:
+    """Return purity plus a label-aligned confusion matrix for diagnostics."""
+
+    embeddings = np.asarray(embeddings, dtype=np.float64)
+    labels = np.asarray(labels)
+    if embeddings.ndim != 2:
+        raise ValueError("embeddings must be two-dimensional")
+    if labels.ndim != 1 or labels.shape[0] != embeddings.shape[0]:
+        raise ValueError("labels must be one-dimensional and align with embeddings")
+    if not np.issubdtype(labels.dtype, np.integer):
+        raise ValueError("labels must be integers")
+    if num_regimes < 2:
+        raise ValueError("num_regimes must be at least two")
+    if embeddings.shape[0] < num_regimes:
+        raise ValueError("sample count must be at least num_regimes")
+    if not np.array_equal(np.unique(labels), np.arange(num_regimes)):
+        raise ValueError("labels must cover every regime exactly")
+    if not np.isfinite(embeddings).all():
+        raise ValueError("embeddings must be finite")
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
+    if n_init < 1:
+        raise ValueError("n_init must be positive")
+
     assignments = KMeans(
         n_clusters=num_regimes,
-        n_init=20,
+        n_init=n_init,
         random_state=seed,
     ).fit_predict(embeddings)
     contingency = np.zeros((num_regimes, num_regimes), dtype=np.int64)
@@ -110,10 +153,21 @@ def clustering_scores(
 
     purity = float(contingency.max(axis=1).sum() / labels.size)
     rows, columns = linear_sum_assignment(-contingency)
-    matched_accuracy = float(contingency[rows, columns].sum() / labels.size)
+    cluster_to_label = np.full(num_regimes, -1, dtype=np.int64)
+    cluster_to_label[rows] = columns
+    predicted_labels = cluster_to_label[assignments]
+    aligned_confusion = np.zeros((num_regimes, num_regimes), dtype=np.int64)
+    for true_label, predicted_label in zip(labels, predicted_labels, strict=True):
+        aligned_confusion[true_label, predicted_label] += 1
+    regime_counts = aligned_confusion.sum(axis=1)
+    per_regime_recall = np.diag(aligned_confusion) / regime_counts
+    matched_accuracy = float(np.mean(predicted_labels == labels))
     return {
         "kmeans_purity": purity,
         "kmeans_matched_accuracy": matched_accuracy,
+        "contingency": contingency,
+        "aligned_confusion": aligned_confusion,
+        "per_regime_recall": per_regime_recall,
     }
 
 

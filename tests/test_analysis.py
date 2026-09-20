@@ -1,6 +1,7 @@
 import numpy as np
 
 from koopman_jepa.analysis import (
+    clustering_diagnostics,
     evaluate_phase0,
     linear_probe_accuracy,
     predictor_subspace_statistics,
@@ -61,3 +62,37 @@ def test_linear_probe_is_invariant_to_global_embedding_scale() -> None:
 
     assert original_accuracy == 1.0
     assert scaled_accuracy == original_accuracy
+
+
+def test_clustering_diagnostics_aligns_permuted_cluster_ids() -> None:
+    labels = np.repeat(np.arange(3), 6)
+    embeddings = np.eye(3)[labels]
+
+    diagnostics = clustering_diagnostics(
+        embeddings,
+        labels,
+        num_regimes=3,
+        seed=4,
+        n_init=5,
+    )
+
+    assert diagnostics["kmeans_purity"] == 1.0
+    assert diagnostics["kmeans_matched_accuracy"] == 1.0
+    np.testing.assert_array_equal(
+        diagnostics["aligned_confusion"],
+        np.diag([6, 6, 6]),
+    )
+    np.testing.assert_array_equal(diagnostics["per_regime_recall"], np.ones(3))
+
+
+def test_clustering_diagnostics_rejects_incomplete_labels() -> None:
+    labels = np.zeros(6, dtype=np.int64)
+    embeddings = np.ones((6, 2))
+
+    with np.testing.assert_raises_regex(ValueError, "cover every regime"):
+        clustering_diagnostics(
+            embeddings,
+            labels,
+            num_regimes=2,
+            seed=0,
+        )
