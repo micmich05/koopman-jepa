@@ -694,6 +694,16 @@ training. Synthetic unit tests cover the exact identity, a nonsymmetric matrix
 with closed-form norms, missing and failed seeds, non-finite metrics, and input
 shape validation. No held-out embedding has been computed.
 
+The unexecuted notebook
+`notebooks/paper_linear_identity_heldout_smoke.ipynb` implements the complete
+control flow. It constructs only train and validation first, reproduces all
+five checkpoints, and sets the held-out authorization flag only when every
+replay result passes. The later test-construction cell asserts that flag before
+instantiating `PaperRegimeDataset(..., "test", ...)`. Its result section is
+already parameterized to report every gate, failed seed, per-seed plot,
+spectral plot, mean and dispersion, and the limitations of the small sample.
+The notebook has no execution counts or outputs yet.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -828,8 +838,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare an unexecuted held-out notebook that first reproduces all five selected
-checkpoints and aborts unless every replay check passes. Only the subsequent
-cell may construct test and compute the frozen linear-operator diagnostics. Do
-not execute the notebook until its control flow and written interpretation are
-reviewed and committed. Keep the reduced Phase 0 pipeline unchanged.
+Execute the committed held-out notebook without changing its code or frozen
+configuration. If checkpoint replay aborts, leave test unopened and diagnose
+only train/validation. If replay passes, record the first and only smoke-test
+evaluation under this protocol, visually audit every figure, and commit the
+unaltered result whether PASS or FAIL. Keep the reduced Phase 0 pipeline
+unchanged.

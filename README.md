@@ -66,9 +66,10 @@ en
 [`paper_linear_identity_heldout_smoke.yaml`](configs/paper_linear_identity_heldout_smoke.yaml),
 y la captura/reproducción exacta del checkpoint ya está implementada y cubierta
 por tests. Las métricas del operador y el gate conjunto también están
-implementados y validados con casos sintéticos. Falta preparar y revisar el
-notebook no ejecutado antes de consultar test. Este smoke test todavía no
-reproduce los resultados del paper.
+implementados y validados con casos sintéticos. El notebook de evaluación ya
+está preparado y revisado, todavía sin outputs, en
+[`paper_linear_identity_heldout_smoke.ipynb`](notebooks/paper_linear_identity_heldout_smoke.ipynb).
+Este smoke test todavía no reproduce los resultados del paper.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
