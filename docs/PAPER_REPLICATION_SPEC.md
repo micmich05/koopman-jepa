@@ -1075,12 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Review and commit the prepared validation-only notebook for the frozen
-lower-learning-rate sensitivity, then run it unchanged. It uses the best
-architecture seen so far, direct encoder plus one-hidden predictor, and changes
-only AdamW learning rate from `3e-4` to `1e-4`. Keep data, seeds, 20 epochs,
-EMA, checkpoint policy, and clustering aggregation fixed. Do not construct
-test.
+Freeze a medium-scale data pilot using the best local base condition: direct
+encoder, one-hidden predictor, and learning rate `3e-4`. Increase train masters
+per regime from 64 to 256 and validation masters from 32 to 64, while keeping
+model seeds, 20 epochs, EMA, checkpoint policy, and clustering aggregation
+fixed. This is a scaling diagnostic, not the paper-scale test. Commit the
+protocol before execution and do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1240,6 +1240,14 @@ quality under the current optimization. Test remains untouched.
 The optimization sensitivity is frozen in
 `configs/paper_mlp_low_lr_development.yaml`. A configuration test requires
 parsed equality with the direct one-hidden condition after replacing only
-`train.learning_rate` with `1e-4`. The unexecuted notebook
+`train.learning_rate` with `1e-4`. The executed notebook
 `notebooks/paper_mlp_low_lr_development.ipynb` reports the formal predictive
 gate and the five-seed validation clustering result in one deterministic run.
+
+Lower learning rate does not materially close the gap. Minimum-loss epochs move
+from roughly 5–7 to 7–10, but only seed 10 exceeds effective rank 4; the other
+ranks are `1.60–3.92`. Validation-loss-ratio CV is `0.287` against the local
+`0.25` maximum. Overall purity is `51.13%`, only `0.37` points above the `3e-4`
+direct one-hidden result; per-seed means range from `48.19%` to `53.95%`.
+Seed-mean CV is `0.041` and worst K-means standard deviation is `1.36%`. The
+formal result and clustering gate both remain FAIL, and test remains untouched.
