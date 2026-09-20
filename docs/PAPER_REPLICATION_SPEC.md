@@ -802,6 +802,16 @@ difference, that an identity matrix fails both structural controls, and that
 missing seeds or non-finite matrices cannot pass. No random-control training or
 held-out evaluation has been run.
 
+The unexecuted notebook
+`notebooks/paper_linear_random_control_smoke.ipynb` implements the paired
+development run. It first reproduces all five identity checkpoints, stores
+their pre-training online and target encoder states, resets each seed, and
+requires exact equality with the corresponding Xavier model before training.
+It then captures and reloads the random checkpoint selected by the unchanged
+validation constraints, evaluates both gates, plots all trajectories and
+paired diagnostics, and generates a written interpretation. The notebook has
+no test-dataset construction, execution counts, or outputs.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
@@ -936,9 +946,8 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Prepare an unexecuted paired train/validation notebook. It must replay the
-identity checkpoints, train the Xavier-initialized models with identical
-encoders and batches, apply both the stability and paired-comparison gates, and
-avoid any construction of test. If the development gate passes, freeze its
-selected random checkpoint epochs before any comparison on the already-
-consumed smoke split. Keep the reduced Phase 0 pipeline unchanged.
+Execute the committed paired development notebook without changing its code or
+configuration. Keep test uninstantiated. Commit and interpret the result
+whether PASS or FAIL; only a PASS permits freezing the selected random epochs
+for a later comparison on the already-consumed smoke split. Keep the reduced
+Phase 0 pipeline unchanged.

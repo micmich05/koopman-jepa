@@ -81,7 +81,9 @@ El siguiente control pareado ya está congelado en
 repite seeds 5–9 con encoder y minibatches idénticos, cambiando únicamente
 `M_0` de identidad a Xavier uniforme. Sus métricas pareadas y controles de
 estructura ya están implementados y cubiertos por tests. Todavía no fue
-ejecutado y su etapa de desarrollo no consulta test.
+ejecutado. El notebook train/validation está preparado sin outputs en
+[`paper_linear_random_control_smoke.ipynb`](notebooks/paper_linear_random_control_smoke.ipynb)
+y no contiene ninguna construcción de test.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
