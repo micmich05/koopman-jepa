@@ -332,3 +332,26 @@ def test_mlp_low_lr_sensitivity_changes_only_learning_rate() -> None:
     assert low_lr.stability_gate == baseline.stability_gate
     assert low_lr.clustering == baseline.clustering
     assert low_lr.clustering_gate == baseline.clustering_gate
+
+
+def test_mlp_medium_scale_changes_only_split_sizes() -> None:
+    config_dir = Path(__file__).parents[1] / "configs"
+    baseline = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_one_hidden_development.yaml"
+    )
+    medium = load_paper_mlp_one_hidden_development_config(
+        config_dir / "paper_mlp_medium_scale_development.yaml"
+    )
+
+    assert medium.data == replace(
+        baseline.data,
+        train_per_regime=256,
+        val_per_regime=64,
+    )
+    assert medium.model == baseline.model
+    assert medium.train == baseline.train
+    assert medium.checkpoint_gate == baseline.checkpoint_gate
+    assert medium.sweep == baseline.sweep
+    assert medium.stability_gate == baseline.stability_gate
+    assert medium.clustering == baseline.clustering
+    assert medium.clustering_gate == baseline.clustering_gate

@@ -179,6 +179,12 @@ y ya fue ejecutado. La pureza sube sólo de `50.76%` a `51.13%`, mientras el
 gate predictivo sigue en `FAIL` y sólo una seed supera rango 4. El learning rate
 menor no explica la brecha con el paper.
 
+El próximo piloto está congelado en
+[`paper_mlp_medium_scale_development.yaml`](configs/paper_mlp_medium_scale_development.yaml):
+usa la mejor configuración base y escala de 64/32 a 256/64 secuencias
+train/validation por régimen. Es un diagnóstico intermedio de escala, todavía
+lejos de los miles de ejemplos por régimen del paper, y no fue ejecutado.
+
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
 - [`paper_literal.yaml`](configs/paper_literal.yaml): estandarización por

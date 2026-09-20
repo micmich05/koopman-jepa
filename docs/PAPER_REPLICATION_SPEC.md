@@ -1075,12 +1075,12 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Freeze a medium-scale data pilot using the best local base condition: direct
-encoder, one-hidden predictor, and learning rate `3e-4`. Increase train masters
-per regime from 64 to 256 and validation masters from 32 to 64, while keeping
-model seeds, 20 epochs, EMA, checkpoint policy, and clustering aggregation
-fixed. This is a scaling diagnostic, not the paper-scale test. Commit the
-protocol before execution and do not construct test.
+Prepare a validation-only notebook for the frozen medium-scale data pilot. It
+uses the best local base condition (direct encoder, one-hidden predictor,
+learning rate `3e-4`) and increases train/validation masters per regime from
+64/32 to 256/64. Keep model seeds, 20 epochs, EMA, checkpoint policy, and
+clustering aggregation fixed. This is a scaling diagnostic, not the paper-scale
+test. Commit the notebook before execution and do not construct test.
 
 An exploratory diagnostic notebook was executed at
 `notebooks/paper_linear_random_heldout_diagnostic.ipynb`. It reconstructs the
@@ -1251,3 +1251,11 @@ ranks are `1.60–3.92`. Validation-loss-ratio CV is `0.287` against the local
 direct one-hidden result; per-seed means range from `48.19%` to `53.95%`.
 Seed-mean CV is `0.041` and worst K-means standard deviation is `1.36%`. The
 formal result and clustering gate both remain FAIL, and test remains untouched.
+
+The medium-scale pilot is frozen in
+`configs/paper_mlp_medium_scale_development.yaml`. A configuration test requires
+equality with the direct one-hidden baseline after replacing only
+`train_per_regime` and `val_per_regime` with 256 and 64. Validation sequence IDs
+necessarily shift because split offsets follow the enlarged train range, so
+the result will be interpreted as a scaling trend rather than a paired
+sample-for-sample comparison. It has not been executed.
