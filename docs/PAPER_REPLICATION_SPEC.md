@@ -728,8 +728,9 @@ No author contact should be made without explicit user approval.
 
 ## Next implementation step
 
-Execute the frozen scale-invariant stability protocol for seeds 5–9 in a new
-notebook, including per-seed trajectories, selected checkpoints, both
+Execute the frozen scale-invariant stability protocol for seeds 5–9 in
+`notebooks/paper_seed_stability_scale_invariant.ipynb`, including per-seed
+trajectories, selected checkpoints, both
 variability statistics, and a written interpretation of every gate. Keep the
 test split unopened during this run. If the gate passes, freeze the first
 held-out evaluation protocol before opening test; if it fails, diagnose the

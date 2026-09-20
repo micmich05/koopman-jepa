@@ -56,7 +56,9 @@ permanece cerrado. El protocolo siguiente ya está congelado en
 repite la misma condición con seeds nuevas 5–9 y usa el CV de los ratios
 validation/baseline como criterio de variabilidad, manteniendo todos los demás
 límites. La loss absoluta seguirá reportándose sólo como diagnóstico. Este
-protocolo todavía no fue ejecutado y no autoriza abrir test hasta que pase.
+protocolo está preparado, todavía sin ejecutar, en
+[`paper_seed_stability_scale_invariant.ipynb`](notebooks/paper_seed_stability_scale_invariant.ipynb)
+y no autoriza abrir test hasta que pase.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
