@@ -9,8 +9,8 @@
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
 - Implementation status: dataset audited, preprocessing conditions frozen,
-  model variants implemented, and the fixed-batch development gate passed; a
-  short train/validation protocol is frozen but not yet executed
+  model variants implemented, and both development gates passed; checkpoint
+  selection and seed-stability protocol pending before test evaluation
 
 Primary sources:
 
@@ -459,6 +459,34 @@ Passing would show that the prediction objective improves on unseen sequences
 without complete representational collapse under this small condition. It
 would still not establish downstream clustering quality, reproduce the paper,
 or justify using these unpublished optimization settings for a final result.
+
+The executed notebook `notebooks/paper_train_validation_smoke.ipynb` passes the
+preregistered aggregate gate:
+
+| Diagnostic | Executed result | Gate |
+|---|---:|---:|
+| Untrained validation loss | 0.0067694 | reference |
+| Final two-epoch train loss | 0.00043125 | - |
+| Final two-epoch validation loss | 0.00166635 | - |
+| Final/untrained validation loss ratio | 0.2462 | at most 0.50 |
+| Final validation/train loss ratio | 3.864 | at most 4.0 |
+| Validation-dispersion retention | 0.6695 | at least 0.10 |
+| Final validation effective rank | 20.934 | at least 4.0 |
+| All recorded values finite | yes | required |
+
+The PASS has an important warning. Validation first crosses the loss threshold
+at epoch 3 and reaches its best observed value, `0.00165277`, at epoch 10, but
+its improvement from epoch 9 to 10 is only 1.6% while train improves 24.9%.
+Consequently, the individual validation/train ratio rises monotonically after
+epoch 2 and reaches `4.467` at epoch 10, above the gate threshold. The
+preregistered gate still passes because it computes the ratio between the mean
+losses of epochs 9 and 10, yielding `3.864`; that rule is not changed after
+observing the result.
+
+This is evidence of increasing overfit, not collapse: validation dispersion
+retains 67.0% of its initial value, and effective rank bottoms at `17.656` on
+epoch 6 before recovering. Test evaluation remains closed until checkpoint
+selection and multi-seed stability are specified without reference to test.
 
 ## Training details absent from the paper
 

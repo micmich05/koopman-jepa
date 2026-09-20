@@ -34,11 +34,15 @@ no-colapso ya están congelados en
 ejecutado [`paper_overfit_smoke.ipynb`](notebooks/paper_overfit_smoke.ipynb)
 pasó el gate: la loss final fue 0.0252% de la inicial, la dispersión retuvo
 99.1% y el rango efectivo final fue 12.08. Es una prueba de integración sobre
-un batch memorizable, no un resultado comparable con el paper. El próximo paso
-es ejecutar la condición corta con train y validation separados, ya congelada
-en [`paper_train_validation_smoke.yaml`](configs/paper_train_validation_smoke.yaml).
-Sus criterios exigen mejora fuera de muestra, una brecha train/validation
-acotada y ausencia de colapso; el test split queda reservado.
+un batch memorizable, no un resultado comparable con el paper. La condición
+corta con splits separados está en
+[`paper_train_validation_smoke.yaml`](configs/paper_train_validation_smoke.yaml),
+y el notebook ejecutado
+[`paper_train_validation_smoke.ipynb`](notebooks/paper_train_validation_smoke.ipynb)
+pasa el gate agregado: validation baja al 24.6% de su baseline y conserva rango
+efectivo 20.93. Sin embargo, la brecha individual validation/train llega a
+4.467 en la época 10. Por eso test sigue reservado: el próximo paso es fijar
+selección de checkpoint y comprobar estabilidad entre seeds.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
