@@ -28,8 +28,11 @@ apéndice se contradicen en la proyección del encoder y la profundidad del MLP,
 como una variante con nombre. El paso mínimo de entrenamiento también está
 validado: el loss euclídeo, los gradientes, la actualización del optimizer y el
 EMA funcionan juntos sobre un batch. Aún no hay un resultado de entrenamiento
-del modelo completo; el próximo paso es congelar un protocolo de optimización
-local y someterlo a una prueba corta antes de lanzar corridas largas.
+del modelo completo. La configuración local de sobreajuste y sus umbrales de
+no-colapso ya están congelados en
+[`paper_overfit_smoke.yaml`](configs/paper_overfit_smoke.yaml); el próximo paso
+es ejecutarla y analizar sus curvas en un notebook antes de lanzar corridas
+largas.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 

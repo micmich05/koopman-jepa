@@ -359,6 +359,45 @@ instrument. This does not select SGD for the paper reproduction: optimizer and
 learning rate remain unpublished experimental variables and must be frozen in
 the next protocol step.
 
+### Frozen fixed-batch development gate
+
+Before any multi-epoch run, `configs/paper_overfit_smoke.yaml` freezes a local
+debugging condition. It is not attributed to the paper and its measurements
+must not be compared with published clustering or operator results.
+
+| Parameter | Development value |
+|---|---:|
+| Training sequences | 1 per regime, 18 total |
+| Normalization | `per_sequence` |
+| Batch | one fixed balanced batch of 18 |
+| Encoder | `direct`, latent dimension 32 |
+| Predictor | linear, identity initialization |
+| EMA decay | 0.996 |
+| Optimizer | AdamW |
+| Learning rate | 0.001 |
+| Weight decay | 0 |
+| Steps | 100 |
+| Seed | 0 |
+| Device | CPU |
+
+Because predictive loss can decrease through representational collapse, the
+run records mean coordinate-wise embedding dispersion and the entropy-based
+effective rank in addition to loss and gradient norms. With 18 samples, the
+centered batch can have rank at most 17 even though the latent dimension is 32.
+
+The gate is evaluated on the first and last ten steps using criteria fixed
+before execution:
+
+- every recorded value must be finite;
+- final mean loss must be at most 25% of initial mean loss;
+- final mean embedding dispersion must retain at least 10% of its initial
+  value;
+- final mean effective rank must be at least 2.
+
+Passing this gate only demonstrates that the implementation can optimize a
+memorization-scale batch without complete collapse under one plausible local
+setup. It provides no evidence of held-out performance or paper reproduction.
+
 ## Training details absent from the paper
 
 The conference paper, extended PDF, HTML, and TeX source do not specify:
