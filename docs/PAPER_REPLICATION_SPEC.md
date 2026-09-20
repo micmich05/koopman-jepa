@@ -9,8 +9,8 @@
 - Conference version: AAAI 2026
 - Extended version: arXiv v2, 2026-01-23
 - Implementation status: dataset audited, preprocessing conditions frozen,
-  model variants implemented, and one-batch training mechanics validated; full
-  training protocol pending
+  model variants implemented, and the fixed-batch development gate passed; a
+  train/validation protocol is pending
 
 Primary sources:
 
@@ -397,6 +397,24 @@ before execution:
 Passing this gate only demonstrates that the implementation can optimize a
 memorization-scale batch without complete collapse under one plausible local
 setup. It provides no evidence of held-out performance or paper reproduction.
+
+The executed notebook `notebooks/paper_overfit_smoke.ipynb` passed all four
+criteria:
+
+| Diagnostic | Executed result | Gate |
+|---|---:|---:|
+| Initial ten-step mean loss | 0.110840 | reference |
+| Final ten-step mean loss | 0.00002798 | - |
+| Final/initial loss ratio | 0.000252 | at most 0.25 |
+| Final/initial embedding-dispersion ratio | 0.9913 | at least 0.10 |
+| Final mean effective rank | 12.078 | at least 2.0 |
+| All recorded values finite | yes | required |
+
+The curves are not monotone. Loss peaks at `0.548645` on step 2 before its
+sustained decline; embedding dispersion reaches its minimum at step 19, and
+effective rank reaches its minimum of `7.727` at step 26. Both representation
+diagnostics then recover. The transients therefore deserve monitoring in the
+next longer run even though this gate shows no complete collapse.
 
 ## Training details absent from the paper
 

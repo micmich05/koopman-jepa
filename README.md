@@ -30,9 +30,12 @@ validado: el loss euclídeo, los gradientes, la actualización del optimizer y e
 EMA funcionan juntos sobre un batch. Aún no hay un resultado de entrenamiento
 del modelo completo. La configuración local de sobreajuste y sus umbrales de
 no-colapso ya están congelados en
-[`paper_overfit_smoke.yaml`](configs/paper_overfit_smoke.yaml); el próximo paso
-es ejecutarla y analizar sus curvas en un notebook antes de lanzar corridas
-largas.
+[`paper_overfit_smoke.yaml`](configs/paper_overfit_smoke.yaml). El notebook
+ejecutado [`paper_overfit_smoke.ipynb`](notebooks/paper_overfit_smoke.ipynb)
+pasó el gate: la loss final fue 0.0252% de la inicial, la dispersión retuvo
+99.1% y el rango efectivo final fue 12.08. Es una prueba de integración sobre
+un batch memorizable, no un resultado comparable con el paper. El próximo paso
+es una corrida corta con train y validation separados.
 
 Las dos condiciones de preprocesamiento quedaron congeladas como:
 
