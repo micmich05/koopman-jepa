@@ -1,0 +1,68 @@
+dynamics: cyclic
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+emission:
+  num_phases: 4
+  window_length: 128
+  noise_std: 0.08
+  amplitude_low: 0.8
+  amplitude_high: 1.2
+  offset_std: 0.15
+  max_shift: 4
+  pulse_width: 0.055
+  secondary_offset: 0.1875
+  secondary_strength: 0.45
+
+splits:
+  train_repeats_per_transition: 64
+  validation_repeats_per_transition: 16
+  test_repeats_per_transition: 64
+
+model:
+  latent_dim: 3
+  channels: [16, 32]
+  pooling: flatten
+  predictor_init: random
+
+train:
+  epochs: 60
+  batch_size: 128
+  learning_rate: 0.001
+  predictor_learning_rate_multiplier: 4.0
+  freeze_encoder_after_epoch: 3
+  weight_decay: 0.0001
+  ema_momentum: 0.90
+  mean_weight: 1.0
+  variance_weight: 5.0
+  covariance_weight: 1.0
+  device: cpu
+  num_workers: 0
+
+selection:
+  metric: final_epoch
+  mode: fixed
+
+gates:
+  maximum_validation_loss_ratio: 0.50
+  minimum_embedding_std_mean: 0.50
+  minimum_effective_rank: 2.50
+  minimum_linear_probe_accuracy: 0.90
+  maximum_phase_alignment_error: 0.35
+  required_active_rank: 3
+  maximum_intertwining_error: 0.35
+  maximum_active_invariance_error: 0.20
+  maximum_spectral_error: 0.35
+
+aggregate_gates:
+  minimum_successful_seeds: 8
+  maximum_median_intertwining_error: 0.20
+  maximum_median_spectral_error: 0.20
+
+validation_replay:
+  absolute_tolerance: 1.0e-8
+  successful_seeds: 8
+  median_validation_loss_ratio: 0.301005565613913
+  median_effective_rank: 2.810831580138041
+  median_phase_alignment_error: 0.1522005143373802
+  median_intertwining_error: 0.06822191509801676
+  median_spectral_error: 0.06702866939299468
