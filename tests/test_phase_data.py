@@ -1,0 +1,138 @@
+from dataclasses import replace
+
+import numpy as np
+
+from koopman_jepa.phase_data import (
+    PhaseWindowConfig,
+    make_shared_phase_observation_bundle,
+    nearest_template_phase_predictions,
+    ordered_observation_marginal,
+    phase_window_templates,
+    validate_phase_window_config,
+)
+
+
+def test_phase_templates_are_standardized_circular_translations() -> None:
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=2)
+    templates = phase_window_templates(config)
+
+    assert templates.shape == (4, 64)
+    np.testing.assert_allclose(templates.mean(axis=1), 0.0, atol=1e-7)
+    np.testing.assert_allclose(templates.std(axis=1), 1.0, atol=1e-7)
+    for phase in range(1, config.num_phases):
+        np.testing.assert_allclose(
+            templates[phase],
+            np.roll(templates[0], phase * config.window_length // config.num_phases),
+            atol=1e-6,
+        )
+
+
+def test_shared_bundle_has_balanced_phase_transitions_and_shapes() -> None:
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=3)
+    bundle = make_shared_phase_observation_bundle(config, seed=17)
+
+    expected_samples = config.num_phases**2 * config.repeats_per_transition
+    for dynamics, condition in bundle.conditions.items():
+        assert condition.dynamics == dynamics
+        assert condition.current_windows.shape == (expected_samples, 1, 64)
+        assert condition.future_windows.shape == condition.current_windows.shape
+        np.testing.assert_array_equal(
+            np.bincount(condition.current_phases),
+            np.repeat(12, 4),
+        )
+        np.testing.assert_array_equal(
+            np.bincount(condition.future_phases),
+            np.repeat(12, 4),
+        )
+
+    static = bundle.conditions["static"]
+    cyclic = bundle.conditions["cyclic"]
+    independent = bundle.conditions["independent"]
+    assert np.all(static.future_phases == static.current_phases)
+    assert np.all(cyclic.future_phases == (cyclic.current_phases + 1) % 4)
+    np.testing.assert_array_equal(
+        np.bincount(4 * independent.current_phases + independent.future_phases),
+        np.repeat(3, 16),
+    )
+
+
+def test_conditions_reuse_exactly_the_same_observation_marginals() -> None:
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=3)
+    bundle = make_shared_phase_observation_bundle(config, seed=23)
+    reference = bundle.conditions["static"]
+
+    for condition in bundle.conditions.values():
+        np.testing.assert_array_equal(
+            ordered_observation_marginal(condition, "current"),
+            ordered_observation_marginal(reference, "current"),
+        )
+        np.testing.assert_array_equal(
+            ordered_observation_marginal(condition, "future"),
+            ordered_observation_marginal(reference, "future"),
+        )
+
+
+def test_emissions_are_reproducible_but_source_and_future_are_independent() -> None:
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=2)
+    first = make_shared_phase_observation_bundle(config, seed=29)
+    replay = make_shared_phase_observation_bundle(config, seed=29)
+    other = make_shared_phase_observation_bundle(config, seed=30)
+
+    np.testing.assert_array_equal(
+        first.conditions["cyclic"].current_windows,
+        replay.conditions["cyclic"].current_windows,
+    )
+    assert not np.array_equal(
+        first.conditions["static"].current_windows,
+        first.conditions["static"].future_windows,
+    )
+    assert not np.array_equal(
+        first.conditions["cyclic"].current_windows,
+        other.conditions["cyclic"].current_windows,
+    )
+
+
+def test_nearest_template_control_recovers_observed_phase() -> None:
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=8)
+    bundle = make_shared_phase_observation_bundle(config, seed=31)
+    condition = bundle.conditions["independent"]
+
+    current_predictions = nearest_template_phase_predictions(
+        condition.current_windows,
+        bundle.templates,
+        config.max_shift,
+    )
+    future_predictions = nearest_template_phase_predictions(
+        condition.future_windows,
+        bundle.templates,
+        config.max_shift,
+    )
+
+    assert np.mean(current_predictions == condition.current_phases) > 0.99
+    assert np.mean(future_predictions == condition.future_phases) > 0.99
+
+
+def test_phase_window_validation_rejects_invalid_values() -> None:
+    base = PhaseWindowConfig()
+    invalid = (
+        replace(base, num_phases=1),
+        replace(base, window_length=15),
+        replace(base, window_length=130),
+        replace(base, repeats_per_transition=0),
+        replace(base, noise_std=-0.1),
+        replace(base, amplitude_low=0.0),
+        replace(base, amplitude_low=1.3, amplitude_high=1.2),
+        replace(base, max_shift=16),
+        replace(base, pulse_width=0.0),
+        replace(base, secondary_offset=0.5),
+        replace(base, secondary_strength=1.1),
+    )
+    for config in invalid:
+        with np.testing.assert_raises(ValueError):
+            validate_phase_window_config(config)
+
+    bundle = make_shared_phase_observation_bundle(base, seed=1)
+    with np.testing.assert_raises_regex(ValueError, "unknown observation side"):
+        ordered_observation_marginal(bundle.conditions["static"], "middle")  # type: ignore[arg-type]
+    with np.testing.assert_raises_regex(ValueError, "windows must have shape"):
+        nearest_template_phase_predictions(np.zeros(5), bundle.templates, base.max_shift)
