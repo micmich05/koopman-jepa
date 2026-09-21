@@ -32,6 +32,7 @@ class TrainConfig:
     batch_size: int = 128
     learning_rate: float = 1e-3
     predictor_learning_rate_multiplier: float = 1.0
+    freeze_encoder_after_epoch: int | None = None
     weight_decay: float = 1e-4
     ema_momentum: float = 0.99
     mean_weight: float = 0.0
@@ -81,6 +82,10 @@ def validate_config(config: ExperimentConfig) -> None:
         raise ValueError("learning_rate must be positive")
     if config.train.predictor_learning_rate_multiplier <= 0.0:
         raise ValueError("predictor_learning_rate_multiplier must be positive")
+    if config.train.freeze_encoder_after_epoch is not None and not (
+        1 <= config.train.freeze_encoder_after_epoch < config.train.epochs
+    ):
+        raise ValueError("freeze_encoder_after_epoch must be within training")
     if min(
         config.train.mean_weight,
         config.train.variance_weight,

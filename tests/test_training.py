@@ -117,6 +117,65 @@ def test_collect_embeddings_encodes_the_future_target_window() -> None:
     assert (paired_labels == labels.numpy()).all()
 
 
+def test_fixed_horizon_can_freeze_encoder_and_keep_training_predictor() -> None:
+    config = ExperimentConfig(
+        data=DataConfig(
+            context_length=32,
+            shift=8,
+            train_per_regime=2,
+            val_per_regime=1,
+            test_per_regime=1,
+        ),
+        model=ModelConfig(latent_dim=3, channels=[4], predictor_init="random"),
+        train=TrainConfig(
+            epochs=2,
+            batch_size=6,
+            learning_rate=1e-3,
+            freeze_encoder_after_epoch=1,
+        ),
+    )
+    datasets = make_phase0_datasets(config.data, seed=0)
+    model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
+    encoder_snapshots: list[list[torch.Tensor]] = []
+
+    def callback(
+        _epoch: int,
+        current_model: TemporalJEPA,
+        _row: dict[str, float],
+    ) -> None:
+        encoder_snapshots.append(
+            [
+                parameter.detach().clone()
+                for parameter in current_model.online_encoder.parameters()
+            ]
+        )
+
+    history = train_model(
+        model,
+        datasets.train,
+        datasets.val,
+        config,
+        torch.device("cpu"),
+        epoch_callback=callback,
+    )
+
+    assert all(
+        torch.equal(first, second)
+        for first, second in zip(
+            encoder_snapshots[0],
+            encoder_snapshots[1],
+            strict=True,
+        )
+    )
+    assert history[0]["train_online_gradient_norm"] > 0.0
+    assert history[1]["train_online_gradient_norm"] == 0.0
+    assert history[1]["train_predictor_gradient_norm"] > 0.0
+    assert all(
+        not parameter.requires_grad
+        for parameter in model.online_encoder.parameters()
+    )
+
+
 def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
     config = ExperimentConfig(
         data=DataConfig(

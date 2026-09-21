@@ -268,6 +268,9 @@ def _fit_model(
                 for key, value in model.state_dict().items()
             }
 
+        if config.train.freeze_encoder_after_epoch == epoch:
+            model.online_encoder.requires_grad_(False)
+
         if epoch == 1 or epoch % max(config.train.epochs // 5, 1) == 0:
             print(
                 f"epoch={epoch:03d} "

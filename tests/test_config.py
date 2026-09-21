@@ -25,3 +25,16 @@ def test_predictor_learning_rate_multiplier_must_be_positive() -> None:
         match="predictor_learning_rate_multiplier must be positive",
     ):
         validate_config(config)
+
+
+@pytest.mark.parametrize("freeze_epoch", [0, 2, 3])
+def test_encoder_freeze_epoch_must_be_inside_training(freeze_epoch: int) -> None:
+    config = ExperimentConfig(
+        train=TrainConfig(epochs=2, freeze_encoder_after_epoch=freeze_epoch)
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="freeze_encoder_after_epoch must be within training",
+    ):
+        validate_config(config)
