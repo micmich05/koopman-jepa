@@ -1,11 +1,14 @@
 import numpy as np
 
 from koopman_jepa.koopman import (
+    balanced_decay_phase_transitions,
     balanced_phase_transitions,
     centered_phase_indicators,
     cyclic_phase_operator,
+    decay_phase_operator,
     evaluate_phase_dynamics_oracle,
     expected_active_spectrum,
+    expected_decay_active_spectrum,
     expected_phase_operator,
     fit_linear_operator,
     left_eigendecomposition,
@@ -141,3 +144,34 @@ def test_phase_dynamics_reject_invalid_configuration() -> None:
         balanced_phase_transitions("static", repeats_per_transition=0)
     with np.testing.assert_raises_regex(ValueError, "unknown phase dynamics"):
         expected_phase_operator("unknown")  # type: ignore[arg-type]
+
+
+def test_decay_family_has_exact_balanced_marginals_and_operator() -> None:
+    basis = sample_span_basis(centered_phase_indicators(np.arange(4)))
+
+    for rho in (0.0, 0.25, 0.5, 0.75, 1.0):
+        current_phases, future_phases = balanced_decay_phase_transitions(
+            rho,
+            repeats_per_transition=4,
+        )
+        current = centered_phase_indicators(current_phases)
+        future = centered_phase_indicators(future_phases)
+        fitted = fit_linear_operator(current, future)
+        reduced = restrict_operator(fitted, basis)
+        spectral_match = match_eigenvalues(
+            np.linalg.eigvals(reduced),
+            expected_decay_active_spectrum(rho),
+        )
+        expected_reduced = restrict_operator(decay_phase_operator(rho), basis)
+
+        np.testing.assert_array_equal(np.bincount(current_phases), np.repeat(16, 4))
+        np.testing.assert_array_equal(np.bincount(future_phases), np.repeat(16, 4))
+        np.testing.assert_allclose(reduced, expected_reduced, atol=1e-12)
+        assert spectral_match["max_absolute_error"] < 1e-12
+
+
+def test_decay_transition_table_rejects_non_integral_counts() -> None:
+    with np.testing.assert_raises_regex(ValueError, "integral transition counts"):
+        balanced_decay_phase_transitions(0.25, repeats_per_transition=3)
+    with np.testing.assert_raises_regex(ValueError, "rho must lie"):
+        balanced_decay_phase_transitions(1.1, repeats_per_transition=4)

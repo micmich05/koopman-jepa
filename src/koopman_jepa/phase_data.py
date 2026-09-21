@@ -7,7 +7,11 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset
 
-from .koopman import PhaseDynamics, balanced_phase_transitions
+from .koopman import (
+    PhaseDynamics,
+    balanced_decay_phase_transitions,
+    balanced_phase_transitions,
+)
 
 ObservationSide = Literal["current", "future"]
 
@@ -49,6 +53,25 @@ class SharedPhaseObservationBundle:
 
 
 @dataclass(frozen=True, slots=True)
+class DecayPhaseObservationCondition:
+    rho: float
+    current_windows: np.ndarray
+    future_windows: np.ndarray
+    current_phases: np.ndarray
+    future_phases: np.ndarray
+    current_occurrences: np.ndarray
+    future_occurrences: np.ndarray
+
+
+@dataclass(frozen=True, slots=True)
+class SharedDecayPhaseObservationBundle:
+    config: PhaseWindowConfig
+    seed: int
+    templates: np.ndarray
+    conditions: dict[float, DecayPhaseObservationCondition]
+
+
+@dataclass(frozen=True, slots=True)
 class PhaseTensorDatasetSplits:
     train: dict[PhaseDynamics, TensorDataset]
     validation: dict[PhaseDynamics, TensorDataset]
@@ -56,6 +79,14 @@ class PhaseTensorDatasetSplits:
     validation_seed: int
     test: dict[PhaseDynamics, TensorDataset] | None = None
     test_seed: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DecayPhaseTensorDatasetSplits:
+    train: dict[float, TensorDataset]
+    validation: dict[float, TensorDataset]
+    train_seed: int
+    validation_seed: int
 
 
 def validate_phase_window_config(config: PhaseWindowConfig) -> None:
@@ -143,13 +174,10 @@ def _occurrence_indices(phases: np.ndarray, num_phases: int) -> np.ndarray:
     return occurrences
 
 
-def make_shared_phase_observation_bundle(
+def _shared_window_banks(
     config: PhaseWindowConfig,
     seed: int,
-) -> SharedPhaseObservationBundle:
-    """Pair identical observation marginals under three different dynamics."""
-
-    validate_phase_window_config(config)
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     templates = phase_window_templates(config)
     samples_per_phase = config.num_phases * config.repeats_per_transition
     source_seed, future_seed = np.random.SeedSequence(seed).spawn(2)
@@ -165,6 +193,17 @@ def make_shared_phase_observation_bundle(
         config,
         np.random.default_rng(future_seed),
     )
+    return templates, source_bank, future_bank
+
+
+def make_shared_phase_observation_bundle(
+    config: PhaseWindowConfig,
+    seed: int,
+) -> SharedPhaseObservationBundle:
+    """Pair identical observation marginals under three different dynamics."""
+
+    validate_phase_window_config(config)
+    templates, source_bank, future_bank = _shared_window_banks(config, seed)
 
     conditions: dict[PhaseDynamics, PhaseObservationCondition] = {}
     for dynamics in ("static", "cyclic", "independent"):
@@ -195,8 +234,48 @@ def make_shared_phase_observation_bundle(
     )
 
 
+def make_shared_decay_phase_observation_bundle(
+    config: PhaseWindowConfig,
+    rhos: tuple[float, ...] | list[float],
+    seed: int,
+) -> SharedDecayPhaseObservationBundle:
+    """Pair identical observation marginals across damped cyclic dynamics."""
+
+    validate_phase_window_config(config)
+    rho_values = tuple(float(rho) for rho in rhos)
+    if not rho_values or len(set(rho_values)) != len(rho_values):
+        raise ValueError("rhos must be non-empty and unique")
+    templates, source_bank, future_bank = _shared_window_banks(config, seed)
+
+    conditions: dict[float, DecayPhaseObservationCondition] = {}
+    for rho in rho_values:
+        current_phases, future_phases = balanced_decay_phase_transitions(
+            rho,
+            repeats_per_transition=config.repeats_per_transition,
+            num_phases=config.num_phases,
+        )
+        current_occurrences = _occurrence_indices(current_phases, config.num_phases)
+        future_occurrences = _occurrence_indices(future_phases, config.num_phases)
+        conditions[rho] = DecayPhaseObservationCondition(
+            rho=rho,
+            current_windows=source_bank[current_phases, current_occurrences, None, :],
+            future_windows=future_bank[future_phases, future_occurrences, None, :],
+            current_phases=current_phases,
+            future_phases=future_phases,
+            current_occurrences=current_occurrences,
+            future_occurrences=future_occurrences,
+        )
+
+    return SharedDecayPhaseObservationBundle(
+        config=config,
+        seed=seed,
+        templates=templates,
+        conditions=conditions,
+    )
+
+
 def ordered_observation_marginal(
-    condition: PhaseObservationCondition,
+    condition: PhaseObservationCondition | DecayPhaseObservationCondition,
     side: ObservationSide,
 ) -> np.ndarray:
     """Order a condition marginal by phase and shared emission occurrence."""
@@ -247,7 +326,7 @@ def nearest_template_phase_predictions(
 
 
 def phase_condition_tensor_dataset(
-    condition: PhaseObservationCondition,
+    condition: PhaseObservationCondition | DecayPhaseObservationCondition,
 ) -> TensorDataset:
     """Convert one condition to tensors with current/future phase labels."""
 
@@ -259,6 +338,45 @@ def phase_condition_tensor_dataset(
         torch.from_numpy(condition.current_windows),
         torch.from_numpy(condition.future_windows),
         torch.from_numpy(phase_pairs),
+    )
+
+
+def make_decay_phase_tensor_dataset_splits(
+    config: PhaseWindowConfig,
+    rhos: tuple[float, ...] | list[float],
+    train_repeats_per_transition: int,
+    validation_repeats_per_transition: int,
+    seed: int,
+) -> DecayPhaseTensorDatasetSplits:
+    """Create deterministic train/validation splits for the decay family."""
+
+    if train_repeats_per_transition < 1:
+        raise ValueError("train_repeats_per_transition must be positive")
+    if validation_repeats_per_transition < 1:
+        raise ValueError("validation_repeats_per_transition must be positive")
+    train_seed = seed + 11
+    validation_seed = seed + 23
+    train_bundle = make_shared_decay_phase_observation_bundle(
+        replace(config, repeats_per_transition=train_repeats_per_transition),
+        rhos,
+        seed=train_seed,
+    )
+    validation_bundle = make_shared_decay_phase_observation_bundle(
+        replace(config, repeats_per_transition=validation_repeats_per_transition),
+        rhos,
+        seed=validation_seed,
+    )
+    return DecayPhaseTensorDatasetSplits(
+        train={
+            rho: phase_condition_tensor_dataset(condition)
+            for rho, condition in train_bundle.conditions.items()
+        },
+        validation={
+            rho: phase_condition_tensor_dataset(condition)
+            for rho, condition in validation_bundle.conditions.items()
+        },
+        train_seed=train_seed,
+        validation_seed=validation_seed,
     )
 
 

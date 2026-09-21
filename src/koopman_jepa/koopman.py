@@ -55,6 +55,73 @@ def cyclic_phase_operator(num_phases: int = 4) -> np.ndarray:
     return operator
 
 
+def decay_phase_operator(
+    rho: float,
+    num_phases: int = 4,
+) -> np.ndarray:
+    """Return the cyclic operator with active modes contracted by ``rho``."""
+
+    rho = float(rho)
+    if not np.isfinite(rho) or not 0.0 <= rho <= 1.0:
+        raise ValueError("rho must lie in [0, 1]")
+    return rho * cyclic_phase_operator(num_phases)
+
+
+def balanced_decay_phase_transitions(
+    rho: float,
+    repeats_per_transition: int = 16,
+    num_phases: int = 4,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build an exact balanced table for ``rho * C + (1 - rho) * U``.
+
+    The table contains ``num_phases * repeats_per_transition`` samples per
+    current phase. Counts must be integral for the requested finite table.
+    """
+
+    rho = float(rho)
+    if not np.isfinite(rho) or not 0.0 <= rho <= 1.0:
+        raise ValueError("rho must lie in [0, 1]")
+    if repeats_per_transition < 1:
+        raise ValueError("repeats_per_transition must be positive")
+    if num_phases < 2:
+        raise ValueError("num_phases must be at least two")
+
+    other_count_float = repeats_per_transition * (1.0 - rho)
+    successor_count_float = repeats_per_transition * (
+        1.0 + (num_phases - 1) * rho
+    )
+    other_count = int(round(other_count_float))
+    successor_count = int(round(successor_count_float))
+    if not (
+        np.isclose(other_count_float, other_count, atol=1e-12)
+        and np.isclose(successor_count_float, successor_count, atol=1e-12)
+    ):
+        raise ValueError(
+            "rho and repeats_per_transition must produce integral transition counts"
+        )
+
+    pairs: list[tuple[int, int]] = []
+    for current in range(num_phases):
+        successor = (current + 1) % num_phases
+        for future in range(num_phases):
+            count = successor_count if future == successor else other_count
+            pairs.extend([(current, future)] * count)
+    table = np.asarray(pairs, dtype=np.int64)
+    return table[:, 0], table[:, 1]
+
+
+def expected_decay_active_spectrum(
+    rho: float,
+    num_phases: int = 4,
+) -> np.ndarray:
+    """Return the active spectrum of the damped cyclic phase operator."""
+
+    rho = float(rho)
+    if not np.isfinite(rho) or not 0.0 <= rho <= 1.0:
+        raise ValueError("rho must lie in [0, 1]")
+    return rho * expected_active_spectrum("cyclic", num_phases)
+
+
 def balanced_phase_transitions(
     dynamics: PhaseDynamics,
     repeats_per_transition: int = 16,

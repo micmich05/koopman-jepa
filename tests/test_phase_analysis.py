@@ -1,6 +1,7 @@
 import numpy as np
 
 from koopman_jepa.koopman import (
+    balanced_decay_phase_transitions,
     balanced_phase_transitions,
     centered_phase_indicators,
     expected_phase_operator,
@@ -9,6 +10,7 @@ from koopman_jepa.koopman import (
     sample_span_basis,
 )
 from koopman_jepa.phase_analysis import (
+    evaluate_decay_operator_candidates,
     evaluate_phase_operator_candidates,
     evaluate_phase_operator_diagnostics,
     evaluate_phase_representation,
@@ -174,3 +176,35 @@ def test_candidate_comparison_with_incomplete_span_has_no_spectral_assignment() 
     assert result["predicted_spectral_dynamics"] is None
     assert result["spectral_mean_errors"] is None
     assert result["spectral_max_errors"] is None
+
+
+def test_decay_candidate_comparison_identifies_every_oracle_rho() -> None:
+    candidates = (0.0, 0.25, 0.5, 0.75, 1.0)
+    indicator_table = centered_phase_indicators(np.arange(4), num_phases=4)
+    _, _, right_vectors = np.linalg.svd(indicator_table, full_matrices=False)
+    coordinates = right_vectors[:3].T
+
+    for rho in candidates:
+        current_phases, future_phases = balanced_decay_phase_transitions(
+            rho,
+            repeats_per_transition=8,
+        )
+        current = centered_phase_indicators(current_phases, 4) @ coordinates
+        future = centered_phase_indicators(future_phases, 4) @ coordinates
+        predictor = fit_linear_operator(current, future)
+
+        result = evaluate_decay_operator_candidates(
+            current,
+            current_phases,
+            predictor,
+            candidates,
+            rollout_horizons=(1, 2, 4, 8),
+        )
+
+        assert result["active_rank"] == 3
+        assert result["predicted_action_rho"] == rho
+        assert result["predicted_spectral_rho"] == rho
+        assert result["action_errors"][rho] < 1e-12
+        assert result["spectral_max_errors"][rho] < 1e-12
+        assert np.isclose(result["mean_eigenvalue_modulus"], rho)
+        assert max(result["rollout_errors"][rho].values()) < 1e-11

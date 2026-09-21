@@ -5,7 +5,9 @@ import torch
 
 from koopman_jepa.phase_data import (
     PhaseWindowConfig,
+    make_decay_phase_tensor_dataset_splits,
     make_phase_tensor_dataset_splits,
+    make_shared_decay_phase_observation_bundle,
     make_shared_phase_observation_bundle,
     nearest_template_phase_predictions,
     ordered_observation_marginal,
@@ -199,3 +201,38 @@ def test_tensor_split_rejects_non_positive_repeat_counts() -> None:
             seed=1,
             test_repeats_per_transition=0,
         )
+
+
+def test_decay_conditions_reuse_identical_observation_marginals() -> None:
+    rhos = (0.0, 0.25, 0.5, 0.75, 1.0)
+    config = PhaseWindowConfig(window_length=64, repeats_per_transition=4)
+    bundle = make_shared_decay_phase_observation_bundle(config, rhos, seed=47)
+    reference = bundle.conditions[0.0]
+
+    for rho, condition in bundle.conditions.items():
+        assert condition.rho == rho
+        np.testing.assert_array_equal(
+            ordered_observation_marginal(condition, "current"),
+            ordered_observation_marginal(reference, "current"),
+        )
+        np.testing.assert_array_equal(
+            ordered_observation_marginal(condition, "future"),
+            ordered_observation_marginal(reference, "future"),
+        )
+
+
+def test_decay_tensor_splits_are_reproducible_and_disjoint() -> None:
+    rhos = (0.0, 0.25, 0.5, 0.75, 1.0)
+    config = PhaseWindowConfig(window_length=64)
+    splits = make_decay_phase_tensor_dataset_splits(config, rhos, 4, 4, seed=53)
+    replay = make_decay_phase_tensor_dataset_splits(config, rhos, 4, 4, seed=53)
+
+    assert set(splits.train) == set(rhos)
+    assert set(splits.validation) == set(rhos)
+    assert splits.train_seed == 64
+    assert splits.validation_seed == 76
+    assert torch.equal(splits.train[0.5].tensors[0], replay.train[0.5].tensors[0])
+    assert not torch.equal(
+        splits.train[0.5].tensors[0],
+        splits.validation[0.5].tensors[0],
+    )
