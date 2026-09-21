@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -155,6 +156,124 @@ def _phase_alignment_columns(
     features = centered_phase_indicators(phases, num_phases)
     alignment = np.linalg.lstsq(features, centered, rcond=None)[0].T
     return alignment, centered
+
+
+def evaluate_phase_operator_candidates(
+    embeddings: np.ndarray,
+    phases: np.ndarray,
+    predictor_matrix: np.ndarray,
+    candidates: Sequence[PhaseDynamics],
+    rollout_horizons: Sequence[int] = (1, 2, 3, 4, 8),
+    rank_tolerance: float = 1e-6,
+) -> dict[str, Any]:
+    """Rank candidate phase dynamics by their action and active spectrum."""
+
+    embeddings = np.asarray(embeddings, dtype=np.float64)
+    phases = np.asarray(phases, dtype=np.int64)
+    predictor_matrix = np.asarray(predictor_matrix, dtype=np.float64)
+    candidate_names = tuple(candidates)
+    horizons = tuple(int(horizon) for horizon in rollout_horizons)
+    if embeddings.ndim != 2:
+        raise ValueError("embeddings must be two-dimensional")
+    if phases.shape != (embeddings.shape[0],):
+        raise ValueError("phases must align with embeddings")
+    if predictor_matrix.shape != (embeddings.shape[1], embeddings.shape[1]):
+        raise ValueError("predictor matrix must match the latent dimension")
+    if not candidate_names or len(set(candidate_names)) != len(candidate_names):
+        raise ValueError("candidates must be non-empty and unique")
+    if any(name not in {"static", "cyclic", "independent"} for name in candidate_names):
+        raise ValueError("unknown candidate dynamics")
+    if not horizons or any(horizon < 1 for horizon in horizons):
+        raise ValueError("rollout horizons must be positive")
+    if rank_tolerance <= 0.0:
+        raise ValueError("rank_tolerance must be positive")
+
+    num_phases = int(phases.max() + 1)
+    if not np.array_equal(np.unique(phases), np.arange(num_phases)):
+        raise ValueError("phases must cover every phase")
+    alignment, _ = _phase_alignment_columns(embeddings, phases, num_phases)
+    alignment_norm = max(np.linalg.norm(alignment), 1e-15)
+    left_vectors, singular_values, _ = np.linalg.svd(alignment, full_matrices=False)
+    if singular_values.size == 0 or singular_values[0] <= 1e-12:
+        active_rank = 0
+        basis = np.zeros((embeddings.shape[1], 0), dtype=np.float64)
+    else:
+        active_rank = int(np.sum(singular_values > rank_tolerance * singular_values[0]))
+        basis = left_vectors[:, :active_rank]
+
+    action_errors: dict[str, float] = {}
+    rollout_errors: dict[str, dict[int, float]] = {}
+    for candidate in candidate_names:
+        expected = expected_phase_operator(candidate, num_phases)
+        action_errors[candidate] = float(
+            np.linalg.norm(predictor_matrix @ alignment - alignment @ expected)
+            / alignment_norm
+        )
+        rollout_errors[candidate] = {
+            horizon: float(
+                np.linalg.norm(
+                    np.linalg.matrix_power(predictor_matrix, horizon) @ alignment
+                    - alignment @ np.linalg.matrix_power(expected, horizon)
+                )
+                / alignment_norm
+            )
+            for horizon in horizons
+        }
+
+    predicted_action = min(action_errors, key=action_errors.__getitem__)
+    ordered_action_errors = sorted(action_errors.values())
+    action_margin = (
+        float(ordered_action_errors[1] - ordered_action_errors[0])
+        if len(ordered_action_errors) > 1
+        else None
+    )
+
+    spectral_mean_errors: dict[str, float] | None = None
+    spectral_max_errors: dict[str, float] | None = None
+    predicted_spectrum: str | None = None
+    spectrum_margin: float | None = None
+    active_eigenvalues = np.array([], dtype=np.complex128)
+    if active_rank == num_phases - 1:
+        reduced_predictor = basis.T @ predictor_matrix @ basis
+        active_eigenvalues = np.linalg.eigvals(reduced_predictor)
+        spectral_matches = {
+            candidate: match_eigenvalues(
+                active_eigenvalues,
+                expected_active_spectrum(candidate, num_phases),
+            )
+            for candidate in candidate_names
+        }
+        spectral_mean_errors = {
+            candidate: float(match["mean_absolute_error"])
+            for candidate, match in spectral_matches.items()
+        }
+        spectral_max_errors = {
+            candidate: float(match["max_absolute_error"])
+            for candidate, match in spectral_matches.items()
+        }
+        predicted_spectrum = min(
+            spectral_mean_errors,
+            key=spectral_mean_errors.__getitem__,
+        )
+        ordered_spectral_errors = sorted(spectral_mean_errors.values())
+        if len(ordered_spectral_errors) > 1:
+            spectrum_margin = float(
+                ordered_spectral_errors[1] - ordered_spectral_errors[0]
+            )
+
+    return {
+        "active_rank": active_rank,
+        "alignment_singular_values": singular_values.tolist(),
+        "action_errors": action_errors,
+        "predicted_action_dynamics": predicted_action,
+        "action_margin": action_margin,
+        "rollout_errors": rollout_errors,
+        "active_eigenvalues": _complex_list(active_eigenvalues),
+        "spectral_mean_errors": spectral_mean_errors,
+        "spectral_max_errors": spectral_max_errors,
+        "predicted_spectral_dynamics": predicted_spectrum,
+        "spectrum_margin": spectrum_margin,
+    }
 
 
 def evaluate_phase_operator_diagnostics(

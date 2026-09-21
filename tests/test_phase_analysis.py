@@ -1,12 +1,15 @@
 import numpy as np
 
 from koopman_jepa.koopman import (
+    balanced_phase_transitions,
     centered_phase_indicators,
     expected_phase_operator,
+    fit_linear_operator,
     restrict_operator,
     sample_span_basis,
 )
 from koopman_jepa.phase_analysis import (
+    evaluate_phase_operator_candidates,
     evaluate_phase_operator_diagnostics,
     evaluate_phase_representation,
 )
@@ -122,3 +125,52 @@ def test_operator_diagnostic_rejects_misaligned_embeddings() -> None:
             np.eye(3),
             dynamics="static",
         )
+
+
+def test_candidate_comparison_identifies_all_oracle_dynamics() -> None:
+    candidates = ("static", "cyclic", "independent")
+    indicator_table = centered_phase_indicators(np.arange(4), num_phases=4)
+    _, _, right_vectors = np.linalg.svd(indicator_table, full_matrices=False)
+    coordinates = right_vectors[:3].T
+
+    for dynamics in candidates:
+        current_phases, future_phases = balanced_phase_transitions(
+            dynamics,
+            repeats_per_transition=8,
+            num_phases=4,
+        )
+        current = centered_phase_indicators(current_phases, 4) @ coordinates
+        future = centered_phase_indicators(future_phases, 4) @ coordinates
+        predictor = fit_linear_operator(current, future)
+
+        result = evaluate_phase_operator_candidates(
+            current,
+            current_phases,
+            predictor,
+            candidates,
+            rollout_horizons=(1, 2, 4, 8),
+        )
+
+        assert result["active_rank"] == 3
+        assert result["predicted_action_dynamics"] == dynamics
+        assert result["predicted_spectral_dynamics"] == dynamics
+        assert result["action_errors"][dynamics] < 1e-12
+        assert result["spectral_max_errors"][dynamics] < 1e-12
+        assert max(result["rollout_errors"][dynamics].values()) < 1e-11
+
+
+def test_candidate_comparison_with_incomplete_span_has_no_spectral_assignment() -> None:
+    phases = np.tile(np.arange(4), 4)
+    embeddings = (phases == 0).astype(np.float64)[:, None]
+
+    result = evaluate_phase_operator_candidates(
+        embeddings,
+        phases,
+        np.eye(1),
+        ("static", "cyclic", "independent"),
+    )
+
+    assert result["active_rank"] == 1
+    assert result["predicted_spectral_dynamics"] is None
+    assert result["spectral_mean_errors"] is None
+    assert result["spectral_max_errors"] is None
