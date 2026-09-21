@@ -23,7 +23,7 @@ def test_stage2_phase_observation_config_is_valid() -> None:
     assert config["gates"]["require_exact_shared_marginals"] is True
 
 
-def test_stage2_phase_observation_notebook_is_prepared() -> None:
+def test_stage2_phase_observation_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -42,9 +42,18 @@ def test_stage2_phase_observation_notebook_is_prepared() -> None:
     assert "exact_shared_marginals" in source
     assert "decoded_temporal_laws" in source
     assert "assert observation_audit_passed" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
 
     rendered = json.dumps(notebook, ensure_ascii=False)
     assert "sólo cambia el acoplamiento temporal" in rendered
     assert "no como encoder aprendido" in rendered
+    assert "Gate de auditoría de Etapa 2B: **PASS**" in rendered
+    assert "Máxima diferencia entre marginales observables pareados: **0.00e+00**" in rendered
+    assert "Peor accuracy del decoder de fase oracle: **100.00%**" in rendered
+    assert "Máximo error de las transiciones decodificadas: **0.00e+00**" in rendered
+    assert "Diferencia absoluta media entre los bancos source y target: **0.341**" in rendered
