@@ -34,9 +34,16 @@ espectral es `3.33e-15`. En la condición independiente, el error contra una
 realización es `1.00`, mientras que el error contra la media condicional es
 `3.16e-16`; esa diferencia es incertidumbre irreducible, no un fallo.
 
-El próximo paso es construir las observaciones de ventana compartidas por las
-tres dinámicas antes de introducir el encoder neuronal. El PASS actual es del
-oracle y no constituye todavía aprendizaje de representaciones.
+La Etapa 2B también está validada en
+[`stage2_phase_observation_audit.ipynb`](notebooks/stage2_phase_observation_audit.ipynb).
+Las tres condiciones reutilizan exactamente las mismas ventanas marginales,
+con diferencia máxima `0.00`, mientras el decoder de fase oracle alcanza
+`100%` y recupera las tres matrices de transición sin error. Esto confirma que
+la fase es observable pero la dinámica sólo se revela mediante el par temporal.
+
+El próximo paso es congelar el primer entrenamiento neuronal sobre splits con
+seeds distintas. Los PASS de Etapa 2A y 2B validan el oracle y el dataset; aún
+no constituyen aprendizaje de representaciones.
 
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,

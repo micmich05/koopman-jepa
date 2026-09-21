@@ -1,6 +1,6 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: Etapa 2A oracle validada; próxima implementación: observaciones de ventana
+Estado: Etapa 2B validada; próxima implementación: primer entrenamiento neuronal
 Fecha de actualización: 21 de septiembre de 2026
 
 ## Estado experimental
@@ -21,9 +21,13 @@ Fecha de actualización: 21 de septiembre de 2026
   `{0,0,0}` para las dinámicas estática, cíclica e independiente. El peor error
   espectral es `3.33e-15`. En la condición independiente, el error contra una
   muestra es `1.00`, pero contra la media condicional es `3.16e-16`.
-- **Siguiente:** construir un único generador de observaciones de ventana para
-  las tres dinámicas y validar que las marginales observables también sean
-  iguales antes de entrenar un encoder.
+- **Etapa 2B — PASS de datos.** Las tres dinámicas reutilizan exactamente los
+  mismos bancos de ventanas actuales y futuras: la diferencia marginal máxima
+  es `0.00`. El decoder de templates recupera la fase con `100%` de accuracy y
+  las tres matrices de transición con error `0.00`; los bancos source y target
+  son realizaciones distintas.
+- **Siguiente:** congelar train/validation/test con seeds separadas y el primer
+  protocolo neuronal común a las tres dinámicas.
 
 ## 1. Objetivo
 
@@ -218,10 +222,13 @@ operadores y sus rollouts de esperanza condicional hasta precisión numérica.
 Este PASS valida el control algebraico y la semántica estocástica, no el
 aprendizaje de un encoder.
 
-**Etapa 2B — observaciones compartidas (siguiente).** Se implementará una sola
-ley de emisión `p(X|r)` y se reutilizará sin cambios en las tres dinámicas. Se
-auditarán igualdad marginal observable, separabilidad de fase y ausencia de
-leakage antes de cualquier entrenamiento neuronal.
+**Etapa 2B — observaciones compartidas (completada).** Se implementó una sola
+ley de emisión `p(X|r)` con templates trasladados, amplitud, offset, jitter y
+ruido, reutilizada sin cambios en las tres dinámicas. El audit usa 1024 pares
+por condición y 256 observaciones por fase y marginal. La igualdad observable
+es exacta, el decoder oracle alcanza `100%` y las transiciones decodificadas no
+presentan error. Train, validation y test deberán usar seeds distintas para no
+compartir realizaciones.
 
 **Gate 1:** el mismo pipeline e hiperparámetros deben distinguir correctamente las tres dinámicas en varias seeds.
 
@@ -477,8 +484,8 @@ El orden acordado propuesto es:
 5. robustez, baselines y dinámica estocástica.
 
 La Etapa 0 quedó cerrada como reproducción mecanística parcial, la Etapa 1
-validó las convenciones algebraicas y la Etapa 2A validó el oracle de las tres
-dinámicas. El siguiente trabajo autorizado por este orden es la Etapa 2B:
-congelar y auditar el generador de observaciones compartido. Cualquier cambio
-en sus emisiones, marginales o gates debe fijarse antes de ejecutar modelos
-neuronales.
+validó las convenciones algebraicas y las Etapas 2A–2B validaron el oracle y el
+generador compartido. El siguiente trabajo autorizado por este orden es
+congelar el primer protocolo neuronal con splits separados. Cualquier cambio en
+arquitectura, losses, inicialización, selección de checkpoint o gates debe
+fijarse antes de ejecutar las tres condiciones.

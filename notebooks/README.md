@@ -20,6 +20,8 @@ compara directamente protocolos distintos.
    validación algebraica del ciclo de cuatro fases.
 6. [`stage2_phase_dynamics_oracle.ipynb`](stage2_phase_dynamics_oracle.ipynb):
    comparación estática/cíclica/independiente con marginales idénticas.
+7. [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb):
+   auditoría de la ley de emisión compartida antes del encoder neuronal.
 
 ## Registro completo
 
@@ -59,6 +61,7 @@ receta u objetivo autosupervisado no publicado, no en ausencia de señal.
 |---|---:|---|
 | [`stage1_four_phase_koopman_oracle.ipynb`](stage1_four_phase_koopman_oracle.ipynb) | PASS | Recupera rango activo 3 y espectro `{-1,i,-i}` con error espectral medio `1.14e-15`. |
 | [`stage2_phase_dynamics_oracle.ipynb`](stage2_phase_dynamics_oracle.ipynb) | PASS oracle | Con marginales idénticas recupera `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}`; distingue error por muestra de error contra la media condicional. |
+| [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb) | PASS datos | Reutiliza exactamente los mismos marginales observables, decodifica fase al `100%` y recupera las tres leyes temporales sin error. |
 
 ## Convenciones
 
