@@ -104,6 +104,18 @@ no posee una partición test: el próximo paso es añadirla de forma determinist
 congelar el protocolo held-out y exigir reproducción exacta de validation antes
 de consumirla.
 
+La primera evaluación held-out está ejecutada en
+[`stage3_cyclic_heldout.ipynb`](notebooks/stage3_cyclic_heldout.ipynb). El replay
+de validation reprodujo exactamente las métricas congeladas antes de construir
+test. El gate global dio `FAIL`: `0/10` seeds pasan porque el ratio test/baseline
+queda entre `0.538–0.714`, por encima del máximo `0.50` (mediana `0.582`). Sin
+embargo, las métricas dinámicas generalizan: medianas de entrelazamiento y
+espectro `0.068/0.067`, rango efectivo `2.819` y alineación `0.153`. Seeds 6 y
+7 conservan además los fallos de rango/entrelazamiento observados en validation.
+Test queda consumido para esta receta y los thresholds no se modifican. El
+siguiente análisis será únicamente post-hoc: descomponer la loss para distinguir
+error predictivo de penalizaciones estadísticas.
+
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman

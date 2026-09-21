@@ -535,9 +535,16 @@ fallos comparten rango efectivo bajo (`2.16` y `2.06`) y entrelazamiento alto;
 uno también falla espectro. Por tanto, la receta es robusta en mayoría, pero
 con una cola real de selección modal inestable.
 
-Esta estabilidad habilita diseñar la evaluación held-out cíclica, no a leerla
-inmediatamente. El generador actual sólo materializa train/validation. Primero
-se añadirá un split test determinista y disjunto, se congelarán sus tamaños y
-gates, y el notebook held-out deberá reproducir las métricas de validation de
-las 10 seeds antes de construir test. No se modificarán umbrales después de
-consumirlo ni se ampliará todavía a las otras dinámicas.
+Esta estabilidad habilitó la evaluación held-out cíclica. Se añadió un split
+test opcional con seed disjunto y el protocolo se congeló antes de consumirlo.
+El notebook reprodujo exactamente el resumen de validation y recién entonces
+construyó test. El resultado formal fue `FAIL`: ninguna de las 10 seeds cumple
+el ratio test/baseline ≤`0.50`; la mediana es `0.582`.
+
+La falla no aparece en la geometría dinámica: test conserva medianas de rango
+`2.819`, alineación `0.153`, entrelazamiento `0.068` y error espectral `0.067`.
+Seeds 6 y 7 mantienen la cola de bajo rango ya vista en validation. Por tanto,
+hay evidencia held-out de recuperación mayoritaria de la dinámica Koopman, pero
+no un PASS del protocolo completo. Test queda consumido y no se ajustarán sus
+thresholds. El siguiente paso permitido es un diagnóstico post-hoc de los
+términos de loss; cualquier receta nueva requerirá nuevos datos ciegos.
