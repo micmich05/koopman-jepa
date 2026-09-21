@@ -18,6 +18,7 @@ def test_decay_baseline_protocol_is_frozen_before_implementation() -> None:
     )
     assert config["primary_baseline"] == "random_cnn3_dmd"
     assert config["target_method"] == "jepa_learned_predictor"
+    assert config["jepa"]["predictor_init"] == "random"
     assert config["evaluation"]["sign_flip_assignments"] == 2 ** len(config["seeds"])
     assert config["evaluation"]["invalid_active_span_absolute_error"] == 1.0
 
