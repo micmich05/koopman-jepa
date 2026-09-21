@@ -9,13 +9,14 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from .config import ExperimentConfig
-from .model import TemporalJEPA, covariance_loss, variance_loss
+from .model import TemporalJEPA, covariance_loss, mean_loss, variance_loss
 
 
 @dataclass(slots=True)
 class EpochMetrics:
     loss: float
     prediction_loss: float
+    mean_loss: float
     variance_loss: float
     covariance_loss: float
 
@@ -66,7 +67,7 @@ def _run_epoch(
     training = optimizer is not None
     model.train(training)
     mse = nn.MSELoss()
-    totals = np.zeros(5, dtype=np.float64)
+    totals = np.zeros(6, dtype=np.float64)
 
     for context, target, _ in loader:
         context = context.to(device)
@@ -79,16 +80,23 @@ def _run_epoch(
             online_embedding, prediction, target_embedding = model(context, target)
             prediction_term = mse(prediction, target_embedding)
 
+            mean_term = torch.zeros((), device=device)
             variance_term = torch.zeros((), device=device)
             covariance_term = torch.zeros((), device=device)
-            if config.train.variance_weight > 0.0 or config.train.covariance_weight > 0.0:
+            if (
+                config.train.mean_weight > 0.0
+                or config.train.variance_weight > 0.0
+                or config.train.covariance_weight > 0.0
+            ):
                 online_target = model.online_encoder(target)
                 joined = torch.cat([online_embedding, online_target], dim=0)
+                mean_term = mean_loss(joined)
                 variance_term = variance_loss(joined)
                 covariance_term = covariance_loss(joined)
 
             loss = (
                 prediction_term
+                + config.train.mean_weight * mean_term
                 + config.train.variance_weight * variance_term
                 + config.train.covariance_weight * covariance_term
             )
@@ -109,17 +117,19 @@ def _run_epoch(
                 batch_size,
                 float(loss.detach()),
                 float(prediction_term.detach()),
+                float(mean_term.detach()),
                 float(variance_term.detach()),
                 float(covariance_term.detach()),
             ]
-        ) * np.array([1.0, batch_size, batch_size, batch_size, batch_size])
+        ) * np.array([1.0, batch_size, batch_size, batch_size, batch_size, batch_size])
 
     count = max(totals[0], 1.0)
     return EpochMetrics(
         loss=float(totals[1] / count),
         prediction_loss=float(totals[2] / count),
-        variance_loss=float(totals[3] / count),
-        covariance_loss=float(totals[4] / count),
+        mean_loss=float(totals[3] / count),
+        variance_loss=float(totals[4] / count),
+        covariance_loss=float(totals[5] / count),
     )
 
 
@@ -160,10 +170,14 @@ def train_model(
             "epoch": float(epoch),
             "train_loss": train_metrics.loss,
             "train_prediction_loss": train_metrics.prediction_loss,
+            "train_mean_loss": train_metrics.mean_loss,
             "train_variance_loss": train_metrics.variance_loss,
             "train_covariance_loss": train_metrics.covariance_loss,
             "val_loss": val_metrics.loss,
             "val_prediction_loss": val_metrics.prediction_loss,
+            "val_mean_loss": val_metrics.mean_loss,
+            "val_variance_loss": val_metrics.variance_loss,
+            "val_covariance_loss": val_metrics.covariance_loss,
         }
         history.append(row)
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 import numpy as np
+import torch
+from torch.utils.data import TensorDataset
 
 from .koopman import PhaseDynamics, balanced_phase_transitions
 
@@ -44,6 +46,14 @@ class SharedPhaseObservationBundle:
     seed: int
     templates: np.ndarray
     conditions: dict[PhaseDynamics, PhaseObservationCondition]
+
+
+@dataclass(frozen=True, slots=True)
+class PhaseTensorDatasetSplits:
+    train: dict[PhaseDynamics, TensorDataset]
+    validation: dict[PhaseDynamics, TensorDataset]
+    train_seed: int
+    validation_seed: int
 
 
 def validate_phase_window_config(config: PhaseWindowConfig) -> None:
@@ -232,3 +242,55 @@ def nearest_template_phase_predictions(
         candidates /= np.maximum(np.linalg.norm(candidates, axis=1, keepdims=True), 1e-15)
         scores[:, phase] = (observations @ candidates.T).max(axis=1)
     return scores.argmax(axis=1)
+
+
+def phase_condition_tensor_dataset(
+    condition: PhaseObservationCondition,
+) -> TensorDataset:
+    """Convert one condition to tensors with current/future phase labels."""
+
+    phase_pairs = np.stack(
+        [condition.current_phases, condition.future_phases],
+        axis=1,
+    )
+    return TensorDataset(
+        torch.from_numpy(condition.current_windows),
+        torch.from_numpy(condition.future_windows),
+        torch.from_numpy(phase_pairs),
+    )
+
+
+def make_phase_tensor_dataset_splits(
+    config: PhaseWindowConfig,
+    train_repeats_per_transition: int,
+    validation_repeats_per_transition: int,
+    seed: int,
+) -> PhaseTensorDatasetSplits:
+    """Create train/validation observations from disjoint deterministic seeds."""
+
+    if train_repeats_per_transition < 1:
+        raise ValueError("train_repeats_per_transition must be positive")
+    if validation_repeats_per_transition < 1:
+        raise ValueError("validation_repeats_per_transition must be positive")
+    train_seed = seed + 11
+    validation_seed = seed + 23
+    train_bundle = make_shared_phase_observation_bundle(
+        replace(config, repeats_per_transition=train_repeats_per_transition),
+        seed=train_seed,
+    )
+    validation_bundle = make_shared_phase_observation_bundle(
+        replace(config, repeats_per_transition=validation_repeats_per_transition),
+        seed=validation_seed,
+    )
+    return PhaseTensorDatasetSplits(
+        train={
+            dynamics: phase_condition_tensor_dataset(condition)
+            for dynamics, condition in train_bundle.conditions.items()
+        },
+        validation={
+            dynamics: phase_condition_tensor_dataset(condition)
+            for dynamics, condition in validation_bundle.conditions.items()
+        },
+        train_seed=train_seed,
+        validation_seed=validation_seed,
+    )

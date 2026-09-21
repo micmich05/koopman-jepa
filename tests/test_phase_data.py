@@ -1,9 +1,11 @@
 from dataclasses import replace
 
 import numpy as np
+import torch
 
 from koopman_jepa.phase_data import (
     PhaseWindowConfig,
+    make_phase_tensor_dataset_splits,
     make_shared_phase_observation_bundle,
     nearest_template_phase_predictions,
     ordered_observation_marginal,
@@ -136,3 +138,34 @@ def test_phase_window_validation_rejects_invalid_values() -> None:
         ordered_observation_marginal(bundle.conditions["static"], "middle")  # type: ignore[arg-type]
     with np.testing.assert_raises_regex(ValueError, "windows must have shape"):
         nearest_template_phase_predictions(np.zeros(5), bundle.templates, base.max_shift)
+
+
+def test_tensor_splits_use_distinct_seeds_and_phase_pair_labels() -> None:
+    config = PhaseWindowConfig(window_length=64)
+    splits = make_phase_tensor_dataset_splits(
+        config,
+        train_repeats_per_transition=3,
+        validation_repeats_per_transition=2,
+        seed=41,
+    )
+    replay = make_phase_tensor_dataset_splits(config, 3, 2, seed=41)
+
+    train_context, train_future, train_labels = splits.train["cyclic"].tensors
+    val_context, val_future, val_labels = splits.validation["cyclic"].tensors
+    assert train_context.shape == train_future.shape == (48, 1, 64)
+    assert train_labels.shape == (48, 2)
+    assert val_context.shape == val_future.shape == (32, 1, 64)
+    assert val_labels.shape == (32, 2)
+    assert splits.train_seed == 52
+    assert splits.validation_seed == 64
+    assert torch.equal(train_context, replay.train["cyclic"].tensors[0])
+    assert not torch.equal(train_context[:32], val_context)
+    assert torch.all(train_labels[:, 1] == (train_labels[:, 0] + 1) % 4)
+
+
+def test_tensor_split_rejects_non_positive_repeat_counts() -> None:
+    config = PhaseWindowConfig()
+    with np.testing.assert_raises_regex(ValueError, "train_repeats_per_transition"):
+        make_phase_tensor_dataset_splits(config, 0, 2, seed=1)
+    with np.testing.assert_raises_regex(ValueError, "validation_repeats_per_transition"):
+        make_phase_tensor_dataset_splits(config, 2, 0, seed=1)

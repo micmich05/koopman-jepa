@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import copy
+from typing import Literal
 
 import torch
 from torch import nn
 
 
 class TemporalEncoder(nn.Module):
-    def __init__(self, latent_dim: int, channels: list[int]) -> None:
+    def __init__(
+        self,
+        latent_dim: int,
+        channels: list[int],
+        pooling: Literal["global", "flatten"] = "global",
+        input_length: int | None = None,
+    ) -> None:
         super().__init__()
         if latent_dim < 1:
             raise ValueError("latent_dim must be positive")
@@ -15,10 +22,15 @@ class TemporalEncoder(nn.Module):
             raise ValueError("channels cannot be empty")
         if any(channel < 1 for channel in channels):
             raise ValueError("channels must contain only positive values")
+        if pooling not in {"global", "flatten"}:
+            raise ValueError("pooling must be 'global' or 'flatten'")
+        if pooling == "flatten" and (input_length is None or input_length < 1):
+            raise ValueError("flatten pooling requires a positive input_length")
 
         blocks: list[nn.Module] = []
         in_channels = 1
         kernel_sizes = [7, 5, *([3] * max(0, len(channels) - 2))][: len(channels)]
+        feature_length = input_length
         for out_channels, kernel_size in zip(channels, kernel_sizes, strict=True):
             blocks.extend(
                 [
@@ -33,14 +45,24 @@ class TemporalEncoder(nn.Module):
                 ]
             )
             in_channels = out_channels
+            if feature_length is not None:
+                feature_length = (feature_length + 1) // 2
 
         self.features = nn.Sequential(*blocks)
-        self.pool = nn.AdaptiveAvgPool1d(1)
-        self.projection = nn.Linear(channels[-1], latent_dim)
+        self.pooling = pooling
+        if pooling == "global":
+            self.pool = nn.AdaptiveAvgPool1d(1)
+            projection_input = channels[-1]
+        else:
+            self.pool = nn.Flatten(start_dim=1)
+            projection_input = channels[-1] * feature_length  # type: ignore[operator]
+        self.projection = nn.Linear(projection_input, latent_dim)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         features = self.features(inputs)
-        pooled = self.pool(features).squeeze(-1)
+        pooled = self.pool(features)
+        if self.pooling == "global":
+            pooled = pooled.squeeze(-1)
         return self.projection(pooled)
 
 
@@ -72,9 +94,16 @@ class TemporalJEPA(nn.Module):
         latent_dim: int,
         channels: list[int],
         predictor_init: str,
+        pooling: Literal["global", "flatten"] = "global",
+        input_length: int | None = None,
     ) -> None:
         super().__init__()
-        self.online_encoder = TemporalEncoder(latent_dim, channels)
+        self.online_encoder = TemporalEncoder(
+            latent_dim,
+            channels,
+            pooling=pooling,
+            input_length=input_length,
+        )
         self.target_encoder = copy.deepcopy(self.online_encoder)
         self.predictor = LinearPredictor(latent_dim, predictor_init)
         self.target_encoder.requires_grad_(False)
@@ -103,6 +132,10 @@ class TemporalJEPA(nn.Module):
 def variance_loss(embeddings: torch.Tensor, target_std: float = 1.0) -> torch.Tensor:
     std = torch.sqrt(embeddings.var(dim=0, unbiased=False) + 1e-4)
     return torch.relu(target_std - std).mean()
+
+
+def mean_loss(embeddings: torch.Tensor) -> torch.Tensor:
+    return embeddings.mean(dim=0).square().mean()
 
 
 def covariance_loss(embeddings: torch.Tensor) -> torch.Tensor:

@@ -33,6 +33,7 @@ class TrainConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 1e-4
     ema_momentum: float = 0.99
+    mean_weight: float = 0.0
     variance_weight: float = 0.0
     covariance_weight: float = 0.0
     device: str = "auto"
@@ -75,3 +76,9 @@ def validate_config(config: ExperimentConfig) -> None:
         raise ValueError("ema_momentum must be in [0, 1)")
     if config.train.epochs < 1:
         raise ValueError("epochs must be positive")
+    if min(
+        config.train.mean_weight,
+        config.train.variance_weight,
+        config.train.covariance_weight,
+    ) < 0.0:
+        raise ValueError("regularization weights must be non-negative")
