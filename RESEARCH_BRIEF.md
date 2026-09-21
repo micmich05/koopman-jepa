@@ -1,6 +1,6 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: Etapa 1 validada; próxima implementación: Etapa 2
+Estado: Etapa 2A oracle validada; próxima implementación: observaciones de ventana
 Fecha de actualización: 21 de septiembre de 2026
 
 ## Estado experimental
@@ -16,9 +16,14 @@ Fecha de actualización: 21 de septiembre de 2026
   subespacio activo de dimensión 3 y el espectro `{-1, i, -i}`. El error
   espectral medio es `1.14e-15`, el error de entrelazamiento `1.59e-15` y el
   máximo error de rollout hasta ocho pasos `9.62e-15`.
-- **Siguiente:** implementar las dinámicas estática, cíclica e independiente
-  con marginales de fase idénticas, manteniendo separados los resultados oracle
-  y neuronales.
+- **Etapa 2A — PASS oracle.** Con 1024 transiciones por condición y marginales
+  idénticas, los operadores condicionales recuperan `{1,1,1}`, `{-1,i,-i}` y
+  `{0,0,0}` para las dinámicas estática, cíclica e independiente. El peor error
+  espectral es `3.33e-15`. En la condición independiente, el error contra una
+  muestra es `1.00`, pero contra la media condicional es `3.16e-16`.
+- **Siguiente:** construir un único generador de observaciones de ventana para
+  las tres dinámicas y validar que las marginales observables también sean
+  iguales antes de entrenar un encoder.
 
 ## 1. Objetivo
 
@@ -205,6 +210,18 @@ Usaremos el mismo generador de observaciones y tres leyes de transición:
 | Independiente | \(r_{t+1}\sim\mathrm{Uniforme}\{0,1,2,3\}\) | \(\{0,0,0\}\) |
 
 Las tres condiciones tendrán las mismas frecuencias marginales de fase. Sólo cambiará la dependencia temporal.
+
+**Etapa 2A — oracle de fase (completada).** Antes de ocultar la fase, se
+construyeron tablas balanceadas con igual número de muestras y marginales
+uniformes. El ajuste least-squares sobre indicadoras centradas recuperó los tres
+operadores y sus rollouts de esperanza condicional hasta precisión numérica.
+Este PASS valida el control algebraico y la semántica estocástica, no el
+aprendizaje de un encoder.
+
+**Etapa 2B — observaciones compartidas (siguiente).** Se implementará una sola
+ley de emisión `p(X|r)` y se reutilizará sin cambios en las tres dinámicas. Se
+auditarán igualdad marginal observable, separabilidad de fase y ausencia de
+leakage antes de cualquier entrenamiento neuronal.
 
 **Gate 1:** el mismo pipeline e hiperparámetros deben distinguir correctamente las tres dinámicas en varias seeds.
 
@@ -459,7 +476,9 @@ El orden acordado propuesto es:
 4. fase oculta tras ventanas temporales;
 5. robustez, baselines y dinámica estocástica.
 
-La Etapa 0 quedó cerrada como reproducción mecanística parcial y la Etapa 1 ya
-validó las convenciones algebraicas. El siguiente trabajo autorizado por este
-orden es la Etapa 2; cualquier cambio en sus dinámicas, marginales o gates debe
-congelarse antes de ejecutar modelos neuronales.
+La Etapa 0 quedó cerrada como reproducción mecanística parcial, la Etapa 1
+validó las convenciones algebraicas y la Etapa 2A validó el oracle de las tres
+dinámicas. El siguiente trabajo autorizado por este orden es la Etapa 2B:
+congelar y auditar el generador de observaciones compartido. Cualquier cambio
+en sus emisiones, marginales o gates debe fijarse antes de ejecutar modelos
+neuronales.

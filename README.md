@@ -3,6 +3,17 @@
 Experimentos controlados para estudiar si una arquitectura JEPA temporal puede aprender
 subespacios finitos invariantes bajo Koopman y sus dinámicas espectrales.
 
+## Por dónde empezar
+
+- [Research brief](RESEARCH_BRIEF.md): pregunta, matemática, hipótesis y gates.
+- [Índice de notebooks](notebooks/README.md): recorrido recomendado y estado de
+  cada experimento.
+- [Especificación de replicación](docs/PAPER_REPLICATION_SPEC.md): qué publica
+  el paper y qué supuestos locales fueron necesarios.
+
+El código reutilizable vive en [`src/koopman_jepa`](src/koopman_jepa), los
+protocolos congelados en [`configs`](configs) y sus contratos en [`tests`](tests).
+
 ## Progreso hacia Koopman no trivial
 
 La Etapa 1 está validada en el notebook ejecutado
@@ -14,8 +25,18 @@ entrelazamiento `1.59e-15` y el máximo error de rollout hasta ocho pasos
 `9.62e-15`. Esto valida orientación de matrices, restricción al subespacio
 activo, matching espectral y left eigenvectors antes de introducir un encoder.
 
-La próxima etapa compara dinámicas estática, cíclica e independiente con las
-mismas marginales de fase.
+La Etapa 2A oracle también está validada en
+[`stage2_phase_dynamics_oracle.ipynb`](notebooks/stage2_phase_dynamics_oracle.ipynb).
+Con 1024 transiciones balanceadas por condición, las dinámicas estática,
+cíclica e independiente tienen las mismas marginales pero recuperan
+respectivamente los espectros `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}`. El peor error
+espectral es `3.33e-15`. En la condición independiente, el error contra una
+realización es `1.00`, mientras que el error contra la media condicional es
+`3.16e-16`; esa diferencia es incertidumbre irreducible, no un fallo.
+
+El próximo paso es construir las observaciones de ventana compartidas por las
+tres dinámicas antes de introducir el encoder neuronal. El PASS actual es del
+oracle y no constituye todavía aprendizaje de representaciones.
 
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
