@@ -292,7 +292,10 @@ def train_model(
     val_dataset: TensorDataset,
     config: ExperimentConfig,
     device: torch.device,
+    epoch_callback: EpochCallback | None = None,
 ) -> list[dict[str, float]]:
+    """Train through the fixed horizon and keep the final model state."""
+
     return _fit_model(
         model,
         train_dataset,
@@ -300,7 +303,7 @@ def train_model(
         config,
         device,
         restore_best=False,
-        epoch_callback=None,
+        epoch_callback=epoch_callback,
     ).history
 
 

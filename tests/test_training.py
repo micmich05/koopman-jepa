@@ -68,10 +68,19 @@ def test_one_training_epoch_updates_the_predictor() -> None:
         predictor_init=config.model.predictor_init,
     )
     initial_predictor = model.predictor.matrix.detach().clone()
+    callback_epochs: list[int] = []
 
-    history = train_model(model, datasets.train, datasets.val, config, torch.device("cpu"))
+    history = train_model(
+        model,
+        datasets.train,
+        datasets.val,
+        config,
+        torch.device("cpu"),
+        epoch_callback=lambda epoch, _model, _row: callback_epochs.append(epoch),
+    )
 
     assert len(history) == 1
+    assert callback_epochs == [1]
     assert math.isfinite(history[0]["train_loss"])
     assert math.isfinite(history[0]["val_loss"])
     assert not torch.equal(model.predictor.matrix, initial_predictor)
