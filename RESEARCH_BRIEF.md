@@ -528,7 +528,16 @@ efectivo `2.931`, probe de fase `100%`, error de alineación `0.152`, error de
 entrelazamiento `0.078` y error espectral máximo `0.079`. La selección no usa
 fase, espectro ni test: conserva la última época predeclarada.
 
-Este `PASS` demuestra viabilidad de mecanismo, no robustez. El próximo
-protocolo debe congelar exactamente esta receta y evaluarla sobre seeds nuevas
-de desarrollo, reportando tasa de éxito y dispersión. No se ampliará a las
-tres dinámicas ni se construirá test hasta comprobar estabilidad multi-seed.
+El protocolo multi-seed congelado pasa el gate agregado en `8/10` seeds nuevas,
+exactamente el mínimo predeclarado. La mediana de entrelazamiento es `0.068` y
+la de error espectral `0.067`; validation/baseline mediano es `0.301`. Los dos
+fallos comparten rango efectivo bajo (`2.16` y `2.06`) y entrelazamiento alto;
+uno también falla espectro. Por tanto, la receta es robusta en mayoría, pero
+con una cola real de selección modal inestable.
+
+Esta estabilidad habilita diseñar la evaluación held-out cíclica, no a leerla
+inmediatamente. El generador actual sólo materializa train/validation. Primero
+se añadirá un split test determinista y disjunto, se congelarán sus tamaños y
+gates, y el notebook held-out deberá reproducir las métricas de validation de
+las 10 seeds antes de construir test. No se modificarán umbrales después de
+consumirlo ni se ampliará todavía a las otras dinámicas.

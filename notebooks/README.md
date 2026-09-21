@@ -38,6 +38,8 @@ compara directamente protocolos distintos.
     optimización alternada con encoder congelado tras época 3.
 15. [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb):
     horizonte de 60 épocas y primer PASS neuronal cíclico.
+16. [`stage3_cyclic_multiseed_development.ipynb`](stage3_cyclic_multiseed_development.ipynb):
+    robustez de la receta congelada sobre 10 seeds nuevas.
 
 ## Registro completo
 
@@ -86,6 +88,7 @@ receta u objetivo autosupervisado no publicado, no en ausencia de señal.
 | [`stage3_cyclic_predictor_fast_final_smoke.ipynb`](stage3_cyclic_predictor_fast_final_smoke.ipynb) | FAIL | El checkpoint final recupera dinámica (`0.045`) pero la covariance loss de validation explota a `18.990`. |
 | [`stage3_cyclic_predictor_freeze_smoke.ipynb`](stage3_cyclic_predictor_freeze_smoke.ipynb) | FAIL estrecho | Congelar el encoder estabiliza loss, escala y rango; sólo falla espectro (`0.366` frente a `0.35`). |
 | [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb) | PASS desarrollo | A 60 épocas pasa todos los gates: validation ratio `0.236`, entrelazamiento `0.078` y error espectral `0.079`. |
+| [`stage3_cyclic_multiseed_development.ipynb`](stage3_cyclic_multiseed_development.ipynb) | PASS agregado | La receta congelada pasa en `8/10` seeds; medianas de entrelazamiento/espectro `0.068/0.067`. Seeds 6–7 revelan una cola de bajo rango. |
 
 ## Convenciones
 

@@ -93,6 +93,17 @@ evidencia de mecanismo sobre una sola seed de desarrollo, sin consulta de
 test. El siguiente paso es congelar este protocolo y medir robustez en seeds
 nuevas antes de cualquier evaluación held-out.
 
+La validación de robustez está ejecutada en
+[`stage3_cyclic_multiseed_development.ipynb`](notebooks/stage3_cyclic_multiseed_development.ipynb).
+La receta congelada pasa el gate agregado con `8/10` seeds nuevas, exactamente
+el mínimo predeclarado. Las medianas son: validation/baseline `0.301`, rango
+efectivo `2.811`, alineación `0.152`, entrelazamiento `0.068` y error espectral
+`0.067`. Seeds 6 y 7 fallan rango efectivo y entrelazamiento; seed 7 también
+falla espectro. Esto demuestra robustez mayoritaria, no universal. El toy aún
+no posee una partición test: el próximo paso es añadirla de forma determinista,
+congelar el protocolo held-out y exigir reproducción exacta de validation antes
+de consumirla.
+
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman
