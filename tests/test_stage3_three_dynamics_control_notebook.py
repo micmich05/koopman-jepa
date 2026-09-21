@@ -23,20 +23,42 @@ def test_three_dynamics_control_protocol_is_frozen() -> None:
     assert "maximum_validation_loss_ratio" not in config
 
 
-def test_three_dynamics_control_notebook_is_unexecuted_and_operator_centered() -> None:
+def test_three_dynamics_control_notebook_is_executed_and_operator_centered() -> None:
     notebook = _notebook()
     source = "".join(
         "".join(cell.get("source", [])) for cell in notebook["cells"]
     )
+    code_cells = [
+        cell for cell in notebook["cells"] if cell["cell_type"] == "code"
+    ]
 
-    assert all(
-        cell.get("execution_count") is None and cell.get("outputs", []) == []
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code"
-    )
+    assert [cell["execution_count"] for cell in code_cells] == list(range(1, 8))
+    assert not [
+        output
+        for cell in code_cells
+        for output in cell.get("outputs", [])
+        if output.get("output_type") == "error"
+    ]
     assert "evaluate_phase_operator_candidates" in source
     assert "global_operator_result" in source
     assert "loss_used_for_decision\": False" in source
     assert "test_constructed\": False" in source
     assert "minimum_correct" in source
     assert "rollout_errors" in source
+
+
+def test_three_dynamics_control_records_the_frozen_result() -> None:
+    notebook = _notebook()
+    rendered_output = json.dumps(notebook["cells"], ensure_ascii=False)
+
+    assert '"global_operator_result\\": true' in rendered_output
+    assert rendered_output.count('"correct_action_seeds\\": 10') == 3
+    assert rendered_output.count('"correct_spectrum_seeds\\": 10') == 3
+    assert rendered_output.count('"full_rank_seeds\\": 10') == 3
+    assert '"loss_used_for_decision\\": false' in rendered_output
+    assert "las tres condiciones superan el criterio predeclarado" in rendered_output
+    assert sum(
+        "image/png" in output.get("data", {})
+        for cell in notebook["cells"]
+        for output in cell.get("outputs", [])
+    ) == 2
