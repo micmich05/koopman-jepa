@@ -20,9 +20,10 @@ una evaluación ciega de todo el protocolo.
 ## Comparación causal en preparación
 
 [`koopman_decay_baselines_validation.ipynb`](koopman_decay_baselines_validation.ipynb)
-está preparado, pero todavía no ejecutado. Compara DMD crudo, PCA+DMD, CNN
-aleatoria, techo supervisado y JEPA sobre una sola seed de validation. Su única
-función es validar el pipeline y las visualizaciones manteniendo cerrado el
+compara DMD crudo, PCA+DMD, CNN aleatoria, techo supervisado y JEPA sobre una
+sola seed de validation. PCA-3 y DMD crudo superan al predictor JEPA; el mismo
+encoder JEPA con un operador post-hoc reduce marcadamente la diferencia. Es un
+diagnóstico del pipeline, no la conclusión pareada, y mantiene cerrado el
 held-out de diez seeds.
 
 ## Material secundario
