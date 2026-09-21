@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from .model import TemporalEncoder
 
@@ -54,8 +55,8 @@ class PCAOperatorSelection:
 
 
 @dataclass(frozen=True, slots=True)
-class RandomCNNOperatorSelection:
-    """A frozen random encoder and its validation-selected linear operator."""
+class CNNOperatorSelection:
+    """A fixed CNN encoder and its validation-selected linear operator."""
 
     encoder: TemporalEncoder
     operator: RidgeOperatorSelection
@@ -64,6 +65,45 @@ class RandomCNNOperatorSelection:
     def transform(self, windows: np.ndarray | torch.Tensor) -> np.ndarray:
         features = collect_encoder_features(self.encoder, windows, self.batch_size)
         return self.operator.center(features)
+
+
+class PhaseClassifier(nn.Module):
+    """The shared temporal encoder with a supervised phase head."""
+
+    def __init__(
+        self,
+        latent_dim: int,
+        channels: list[int],
+        pooling: str,
+        input_length: int,
+        num_classes: int,
+    ) -> None:
+        super().__init__()
+        if num_classes < 2:
+            raise ValueError("num_classes must be at least two")
+        self.encoder = TemporalEncoder(
+            latent_dim=latent_dim,
+            channels=channels,
+            pooling=pooling,  # type: ignore[arg-type]
+            input_length=input_length,
+        )
+        self.classifier = nn.Linear(latent_dim, num_classes)
+
+    def forward(self, windows: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        embeddings = self.encoder(windows)
+        return embeddings, self.classifier(embeddings)
+
+
+@dataclass(frozen=True, slots=True)
+class SupervisedEncoderTraining:
+    """A phase-supervised encoder frozen at the final epoch."""
+
+    model: PhaseClassifier
+    history: tuple[dict[str, float], ...]
+
+    @property
+    def encoder(self) -> TemporalEncoder:
+        return self.model.encoder
 
 
 def _feature_matrix(values: np.ndarray, name: str) -> np.ndarray:
@@ -115,6 +155,17 @@ def make_random_cnn_encoder(
     return encoder.to(device)
 
 
+def _window_tensor(windows: np.ndarray | torch.Tensor) -> torch.Tensor:
+    tensor = torch.as_tensor(windows, dtype=torch.float32)
+    if tensor.ndim != 3 or tensor.shape[1] != 1:
+        raise ValueError("windows must have shape (samples, 1, length)")
+    if tensor.shape[0] == 0 or tensor.shape[2] == 0:
+        raise ValueError("windows must have non-empty sample and length dimensions")
+    if not torch.isfinite(tensor).all():
+        raise ValueError("windows must contain only finite values")
+    return tensor
+
+
 @torch.no_grad()
 def collect_encoder_features(
     encoder: nn.Module,
@@ -125,13 +176,7 @@ def collect_encoder_features(
 
     if batch_size < 1:
         raise ValueError("batch_size must be positive")
-    tensor = torch.as_tensor(windows, dtype=torch.float32)
-    if tensor.ndim != 3 or tensor.shape[1] != 1:
-        raise ValueError("windows must have shape (samples, 1, length)")
-    if tensor.shape[0] == 0 or tensor.shape[2] == 0:
-        raise ValueError("windows must have non-empty sample and length dimensions")
-    if not torch.isfinite(tensor).all():
-        raise ValueError("windows must contain only finite values")
+    tensor = _window_tensor(windows)
 
     try:
         device = next(encoder.parameters()).device
@@ -143,6 +188,117 @@ def collect_encoder_features(
         for start in range(0, tensor.shape[0], batch_size)
     ]
     return np.concatenate(batches, axis=0).astype(np.float64, copy=False)
+
+
+def _phase_labels(
+    labels: np.ndarray | torch.Tensor,
+    sample_count: int,
+    num_classes: int,
+    name: str,
+) -> torch.Tensor:
+    tensor = torch.as_tensor(labels, dtype=torch.long)
+    if tensor.shape != (sample_count,):
+        raise ValueError(f"{name} must have one label per window")
+    if torch.any(tensor < 0) or torch.any(tensor >= num_classes):
+        raise ValueError(f"{name} must lie in [0, num_classes)")
+    return tensor
+
+
+def train_supervised_phase_encoder(
+    current_windows: np.ndarray | torch.Tensor,
+    future_windows: np.ndarray | torch.Tensor,
+    current_phases: np.ndarray | torch.Tensor,
+    future_phases: np.ndarray | torch.Tensor,
+    *,
+    seed: int,
+    latent_dim: int,
+    channels: list[int],
+    pooling: str,
+    input_length: int,
+    num_classes: int,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    weight_decay: float,
+    device: torch.device | str = "cpu",
+) -> SupervisedEncoderTraining:
+    """Train the practical phase-supervised ceiling and freeze its encoder."""
+
+    current = _window_tensor(current_windows)
+    future = _window_tensor(future_windows)
+    if current.shape != future.shape:
+        raise ValueError("current and future windows must have equal shape")
+    current_labels = _phase_labels(
+        current_phases,
+        current.shape[0],
+        num_classes,
+        "current_phases",
+    )
+    future_labels = _phase_labels(
+        future_phases,
+        future.shape[0],
+        num_classes,
+        "future_phases",
+    )
+    if epochs < 1 or batch_size < 1:
+        raise ValueError("epochs and batch_size must be positive")
+    if learning_rate <= 0.0 or weight_decay < 0.0:
+        raise ValueError("learning_rate must be positive and weight_decay non-negative")
+
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(seed)
+        model = PhaseClassifier(
+            latent_dim=latent_dim,
+            channels=channels,
+            pooling=pooling,
+            input_length=input_length,
+            num_classes=num_classes,
+        ).to(device)
+
+    dataset = TensorDataset(
+        torch.cat([current, future], dim=0),
+        torch.cat([current_labels, future_labels], dim=0),
+    )
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(seed),
+    )
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=learning_rate,
+        weight_decay=weight_decay,
+    )
+    criterion = nn.CrossEntropyLoss()
+    history: list[dict[str, float]] = []
+    for epoch in range(1, epochs + 1):
+        model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_count = 0
+        for batch_windows, batch_labels in loader:
+            batch_windows = batch_windows.to(device)
+            batch_labels = batch_labels.to(device)
+            optimizer.zero_grad(set_to_none=True)
+            _, logits = model(batch_windows)
+            loss = criterion(logits, batch_labels)
+            loss.backward()
+            optimizer.step()
+            total_loss += float(loss.detach()) * batch_windows.shape[0]
+            total_correct += int((logits.argmax(dim=1) == batch_labels).sum())
+            total_count += batch_windows.shape[0]
+        history.append(
+            {
+                "epoch": float(epoch),
+                "train_loss": total_loss / total_count,
+                "train_accuracy": total_correct / total_count,
+            }
+        )
+
+    model.eval()
+    model.requires_grad_(False)
+    return SupervisedEncoderTraining(model=model, history=tuple(history))
 
 
 def fit_pca_feature_map(
@@ -325,7 +481,7 @@ def fit_random_cnn_dmd(
     batch_size: int,
     regularizations: Sequence[float],
     device: torch.device | str = "cpu",
-) -> RandomCNNOperatorSelection:
+) -> CNNOperatorSelection:
     """Fit ridge-DMD on a seeded CNN that is never trained."""
 
     encoder = make_random_cnn_encoder(
@@ -355,7 +511,35 @@ def fit_random_cnn_dmd(
         validation_future_features,
         regularizations,
     )
-    return RandomCNNOperatorSelection(
+    return CNNOperatorSelection(
+        encoder=encoder,
+        operator=operator,
+        batch_size=batch_size,
+    )
+
+
+def fit_fixed_cnn_dmd(
+    encoder: TemporalEncoder,
+    train_current: np.ndarray | torch.Tensor,
+    train_future: np.ndarray | torch.Tensor,
+    validation_current: np.ndarray | torch.Tensor,
+    validation_future: np.ndarray | torch.Tensor,
+    *,
+    batch_size: int,
+    regularizations: Sequence[float],
+) -> CNNOperatorSelection:
+    """Fit ridge-DMD on an already trained encoder without changing it."""
+
+    encoder.requires_grad_(False)
+    encoder.eval()
+    operator = select_ridge_operator(
+        collect_encoder_features(encoder, train_current, batch_size),
+        collect_encoder_features(encoder, train_future, batch_size),
+        collect_encoder_features(encoder, validation_current, batch_size),
+        collect_encoder_features(encoder, validation_future, batch_size),
+        regularizations,
+    )
+    return CNNOperatorSelection(
         encoder=encoder,
         operator=operator,
         batch_size=batch_size,

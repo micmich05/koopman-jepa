@@ -4,6 +4,7 @@ import torch
 
 from koopman_jepa.baselines import (
     collect_encoder_features,
+    fit_fixed_cnn_dmd,
     fit_pca_dmd,
     fit_pca_feature_map,
     fit_random_cnn_dmd,
@@ -12,6 +13,7 @@ from koopman_jepa.baselines import (
     flatten_windows,
     make_random_cnn_encoder,
     select_ridge_operator,
+    train_supervised_phase_encoder,
 )
 from koopman_jepa.model import TemporalJEPA
 
@@ -262,3 +264,96 @@ def test_random_cnn_dmd_keeps_encoder_frozen() -> None:
         assert actual.requires_grad is False
     assert fit.transform(validation_current).shape == (16, 3)
     assert np.isfinite(fit.operator.validation_mse)
+
+
+def _easy_phase_windows(repeats: int, length: int = 32) -> tuple[torch.Tensor, torch.Tensor]:
+    phases = torch.arange(4).repeat_interleave(repeats)
+    windows = torch.zeros(len(phases), 1, length)
+    for index, phase in enumerate(phases):
+        windows[index, 0, 4 + 8 * int(phase)] = 4.0
+    return windows, phases
+
+
+def test_supervised_encoder_learns_easy_phase_labels_and_is_frozen() -> None:
+    current, current_phases = _easy_phase_windows(repeats=8)
+    future, future_phases = _easy_phase_windows(repeats=8)
+    initial = make_random_cnn_encoder(
+        seed=47,
+        latent_dim=3,
+        channels=[8],
+        pooling="flatten",
+        input_length=32,
+    )
+
+    training = train_supervised_phase_encoder(
+        current,
+        future,
+        current_phases,
+        future_phases,
+        seed=47,
+        latent_dim=3,
+        channels=[8],
+        pooling="flatten",
+        input_length=32,
+        num_classes=4,
+        epochs=40,
+        batch_size=16,
+        learning_rate=0.01,
+        weight_decay=0.0,
+    )
+    with torch.no_grad():
+        _, logits = training.model(current)
+
+    assert training.history[-1]["train_loss"] < training.history[0]["train_loss"]
+    assert float((logits.argmax(dim=1) == current_phases).float().mean()) == 1.0
+    assert all(not parameter.requires_grad for parameter in training.model.parameters())
+    assert any(
+        not torch.equal(trained, original)
+        for trained, original in zip(
+            training.encoder.parameters(),
+            initial.parameters(),
+            strict=True,
+        )
+    )
+
+
+def test_fixed_cnn_dmd_does_not_change_supervised_encoder() -> None:
+    current, phases = _easy_phase_windows(repeats=4, length=32)
+    future = torch.roll(current, shifts=8, dims=-1)
+    future_phases = (phases + 1) % 4
+    training = train_supervised_phase_encoder(
+        current,
+        future,
+        phases,
+        future_phases,
+        seed=53,
+        latent_dim=3,
+        channels=[8],
+        pooling="flatten",
+        input_length=32,
+        num_classes=4,
+        epochs=30,
+        batch_size=16,
+        learning_rate=0.01,
+        weight_decay=0.0,
+    )
+    before = {
+        name: value.detach().clone()
+        for name, value in training.encoder.state_dict().items()
+    }
+
+    fit = fit_fixed_cnn_dmd(
+        training.encoder,
+        current,
+        future,
+        current,
+        future,
+        batch_size=8,
+        regularizations=[0.0, 1e-4],
+    )
+
+    assert all(
+        torch.equal(value, before[name])
+        for name, value in fit.encoder.state_dict().items()
+    )
+    assert fit.transform(current).shape == (16, 3)
