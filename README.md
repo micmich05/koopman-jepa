@@ -3,6 +3,20 @@
 Experimentos controlados para estudiar si una arquitectura JEPA temporal puede aprender
 subespacios finitos invariantes bajo Koopman y sus dinámicas espectrales.
 
+## Progreso hacia Koopman no trivial
+
+La Etapa 1 está validada en el notebook ejecutado
+[`stage1_four_phase_koopman_oracle.ipynb`](notebooks/stage1_four_phase_koopman_oracle.ipynb).
+Usando directamente las indicadoras centradas del ciclo de cuatro fases, el
+ajuste por mínimos cuadrados recupera el span activo tridimensional y el
+espectro `{-1, i, -i}`. El error espectral medio es `1.14e-15`, el error de
+entrelazamiento `1.59e-15` y el máximo error de rollout hasta ocho pasos
+`9.62e-15`. Esto valida orientación de matrices, restricción al subespacio
+activo, matching espectral y left eigenvectors antes de introducir un encoder.
+
+La próxima etapa compara dinámicas estática, cíclica e independiente con las
+mismas marginales de fase.
+
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman

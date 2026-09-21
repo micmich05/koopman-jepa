@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 
-def test_stage1_koopman_oracle_notebook_is_prepared() -> None:
+def test_stage1_koopman_oracle_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -23,5 +23,12 @@ def test_stage1_koopman_oracle_notebook_is_prepared() -> None:
     assert "expected_spectrum = np.array([-1.0, 1.0j, -1.0j]" in source
     assert "TOLERANCE = 1e-10" in source
     assert "max_eight_step_rollout_error" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output["output_type"] != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
+    rendered = json.dumps(notebook, ensure_ascii=False)
+    assert "Gate de Etapa 1: **PASS**" in rendered
+    assert "Error espectral medio/máximo: **1.14e-15 / 2.11e-15**" in rendered

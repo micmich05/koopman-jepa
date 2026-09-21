@@ -1,7 +1,24 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: protocolo previo a implementación  
-Fecha: 19 de septiembre de 2026
+Estado: Etapa 1 validada; próxima implementación: Etapa 2
+Fecha de actualización: 21 de septiembre de 2026
+
+## Estado experimental
+
+- **Etapa 0 — PASS mecanístico.** El caso lineal inicializado en identidad
+  reproduce cualitativamente la acción near-identity sobre el subespacio activo
+  y el control aleatorio confirma la dependencia de la base. La cifra MLP
+  `65.48%` no se reprodujo (`~51%`) y las fuentes oficiales no publican la receta
+  de optimización. Un control supervisado alcanzó `91.49%` de accuracy y
+  `88.05%` de pureza K-means, descartando falta de señal o capacidad del encoder
+  como explicación principal.
+- **Etapa 1 — PASS numérico.** El oracle de indicadoras centradas recupera el
+  subespacio activo de dimensión 3 y el espectro `{-1, i, -i}`. El error
+  espectral medio es `1.14e-15`, el error de entrelazamiento `1.59e-15` y el
+  máximo error de rollout hasta ocho pasos `9.62e-15`.
+- **Siguiente:** implementar las dinámicas estática, cíclica e independiente
+  con marginales de fase idénticas, manteniendo separados los resultados oracle
+  y neuronales.
 
 ## 1. Objetivo
 
@@ -432,7 +449,7 @@ La replicación reducida y el ciclo de cuatro fases pueden ejecutarse en una Mac
 
 El toy cíclico debe considerarse un test de mecanismo, no una contribución final suficiente. El valor científico mayor estará en caracterizar colapso, selección de modos, generalización y la transición posterior a eigenvalues de decaimiento.
 
-## 13. Decisión antes de implementar
+## 13. Orden de implementación
 
 El orden acordado propuesto es:
 
@@ -442,4 +459,7 @@ El orden acordado propuesto es:
 4. fase oculta tras ventanas temporales;
 5. robustez, baselines y dinámica estocástica.
 
-No se comenzará la implementación del experimento principal hasta cerrar la configuración de la Etapa 0 y sus criterios de avance.
+La Etapa 0 quedó cerrada como reproducción mecanística parcial y la Etapa 1 ya
+validó las convenciones algebraicas. El siguiente trabajo autorizado por este
+orden es la Etapa 2; cualquier cambio en sus dinámicas, marginales o gates debe
+congelarse antes de ejecutar modelos neuronales.
