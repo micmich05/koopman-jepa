@@ -7,7 +7,12 @@ from torch.utils.data import TensorDataset
 from koopman_jepa.config import DataConfig, ExperimentConfig, ModelConfig, TrainConfig
 from koopman_jepa.data import make_phase0_datasets
 from koopman_jepa.model import TemporalJEPA
-from koopman_jepa.training import collect_embeddings, train_model
+from koopman_jepa.training import (
+    collect_embeddings,
+    evaluate_model_loss,
+    train_model,
+    train_model_with_validation_checkpoint,
+)
 
 
 class _MeanEncoder(nn.Module):
@@ -66,3 +71,41 @@ def test_collect_embeddings_encodes_the_future_target_window() -> None:
     assert (online == 0.0).all()
     assert (target_embeddings == 3.0).all()
     assert (collected_labels == labels.numpy()).all()
+
+
+def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
+    config = ExperimentConfig(
+        data=DataConfig(
+            context_length=32,
+            shift=8,
+            train_per_regime=2,
+            val_per_regime=1,
+            test_per_regime=1,
+        ),
+        model=ModelConfig(latent_dim=3, channels=[4], predictor_init="random"),
+        train=TrainConfig(
+            epochs=2,
+            batch_size=6,
+            learning_rate=1e-3,
+            mean_weight=1.0,
+            variance_weight=1.0,
+            covariance_weight=1.0,
+        ),
+    )
+    datasets = make_phase0_datasets(config.data, seed=0)
+    model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
+
+    baseline = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
+    result = train_model_with_validation_checkpoint(
+        model,
+        datasets.train,
+        datasets.val,
+        config,
+        torch.device("cpu"),
+    )
+    selected = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
+
+    assert math.isfinite(baseline.loss)
+    assert len(result.history) == 2
+    assert result.best_epoch in {1, 2}
+    assert math.isclose(selected.loss, result.best_validation_loss, rel_tol=1e-6)

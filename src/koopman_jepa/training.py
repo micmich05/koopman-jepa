@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import torch
@@ -19,6 +20,13 @@ class EpochMetrics:
     mean_loss: float
     variance_loss: float
     covariance_loss: float
+
+
+@dataclass(slots=True)
+class TrainingResult:
+    history: list[dict[str, float]]
+    best_epoch: int
+    best_validation_loss: float
 
 
 def set_seed(seed: int) -> None:
@@ -133,13 +141,14 @@ def _run_epoch(
     )
 
 
-def train_model(
+def _fit_model(
     model: TemporalJEPA,
     train_dataset: TensorDataset,
     val_dataset: TensorDataset,
     config: ExperimentConfig,
     device: torch.device,
-) -> list[dict[str, float]]:
+    restore_best: bool,
+) -> TrainingResult:
     train_loader = make_loader(
         train_dataset,
         batch_size=config.train.batch_size,
@@ -161,6 +170,9 @@ def train_model(
     )
 
     history: list[dict[str, float]] = []
+    best_epoch = 0
+    best_validation_loss = float("inf")
+    best_state: dict[str, Any] | None = None
     for epoch in range(1, config.train.epochs + 1):
         train_metrics = _run_epoch(model, train_loader, device, config, optimizer)
         with torch.no_grad():
@@ -180,6 +192,13 @@ def train_model(
             "val_covariance_loss": val_metrics.covariance_loss,
         }
         history.append(row)
+        if val_metrics.loss < best_validation_loss:
+            best_epoch = epoch
+            best_validation_loss = val_metrics.loss
+            best_state = {
+                key: value.detach().clone()
+                for key, value in model.state_dict().items()
+            }
 
         if epoch == 1 or epoch % max(config.train.epochs // 5, 1) == 0:
             print(
@@ -188,7 +207,68 @@ def train_model(
                 f"val={val_metrics.loss:.6f}"
             )
 
-    return history
+    if restore_best:
+        if best_state is None:
+            raise RuntimeError("training completed without a validation checkpoint")
+        model.load_state_dict(best_state)
+    return TrainingResult(
+        history=history,
+        best_epoch=best_epoch,
+        best_validation_loss=float(best_validation_loss),
+    )
+
+
+def train_model(
+    model: TemporalJEPA,
+    train_dataset: TensorDataset,
+    val_dataset: TensorDataset,
+    config: ExperimentConfig,
+    device: torch.device,
+) -> list[dict[str, float]]:
+    return _fit_model(
+        model,
+        train_dataset,
+        val_dataset,
+        config,
+        device,
+        restore_best=False,
+    ).history
+
+
+def train_model_with_validation_checkpoint(
+    model: TemporalJEPA,
+    train_dataset: TensorDataset,
+    val_dataset: TensorDataset,
+    config: ExperimentConfig,
+    device: torch.device,
+) -> TrainingResult:
+    """Train and restore the checkpoint with the lowest total validation loss."""
+
+    return _fit_model(
+        model,
+        train_dataset,
+        val_dataset,
+        config,
+        device,
+        restore_best=True,
+    )
+
+
+@torch.no_grad()
+def evaluate_model_loss(
+    model: TemporalJEPA,
+    dataset: TensorDataset,
+    config: ExperimentConfig,
+    device: torch.device,
+) -> EpochMetrics:
+    loader = make_loader(
+        dataset,
+        batch_size=config.train.batch_size,
+        shuffle=False,
+        seed=config.train.seed,
+        num_workers=config.train.num_workers,
+    )
+    return _run_epoch(model, loader, device, config, optimizer=None)
 
 
 @torch.no_grad()
