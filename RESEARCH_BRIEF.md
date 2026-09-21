@@ -1,6 +1,6 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: Etapa 2B validada; próxima implementación: primer entrenamiento neuronal
+Estado: primer smoke neuronal ejecutado (FAIL localizado); siguiente: sensibilidad EMA
 Fecha de actualización: 21 de septiembre de 2026
 
 ## Estado experimental
@@ -26,8 +26,17 @@ Fecha de actualización: 21 de septiembre de 2026
   es `0.00`. El decoder de templates recupera la fase con `100%` de accuracy y
   las tres matrices de transición con error `0.00`; los bancos source y target
   son realizaciones distintas.
-- **Siguiente:** congelar train/validation/test con seeds separadas y el primer
-  protocolo neuronal común a las tres dinámicas.
+- **Etapa 3 — primer smoke neuronal, FAIL.** Con una seed cíclica y sólo
+  train/validation, el encoder alcanza probe de fase `100%`, rango efectivo
+  `2.846` y alineación `0.153`, pero el predictor falla en entrelazamiento
+  (`1.278`) y espectro (error máximo `1.074`).
+- **Diagnóstico post-hoc.** El operador ajustado entre embeddings online
+  recupera el espectro cíclico con error máximo `0.037`. La base online es
+  estable entre tiempos (`0.019`), pero difiere fuertemente de la base target
+  EMA (`0.812`). El predictor tampoco aproxima bien el mapa online→EMA.
+- **Siguiente:** repetir la misma seed y protocolo cambiando sólo el momentum
+  EMA de `0.99` a un seguimiento más rápido. El FAIL original no se modifica y
+  test permanece sin construir.
 
 ## 1. Objetivo
 
@@ -253,6 +262,13 @@ Progresión:
 
 Las primeras ventanas context-target no se solaparán. El split se hará por trayectoria o por parámetros generativos, nunca mezclando ventanas casi idénticas entre train y test.
 
+El primer smoke cíclico de esta etapa ya fue ejecutado con seeds distintas para
+train y validation. El latent recuperó el subespacio de fase y su operador
+post-hoc online, pero no el predictor entrenado. El checkpoint de mínima loss
+ocurrió en época 3, cuando el target EMA todavía estaba muy rezagado. Antes de
+ampliar a tres dinámicas o múltiples seeds se hará una sensibilidad controlada
+del momentum EMA.
+
 ### Etapa 4 — Robustez y selección de modos
 
 Estudiar:
@@ -276,7 +292,12 @@ En esta etapa, los eigenmodes no serán predecibles trayectoria por trayectoria.
 
 ### Encoder
 
-Una CNN 1D pequeña con global pooling y proyección final a \(d=3\). Global pooling reduce la posibilidad de memorizar posiciones absolutas dentro de la ventana.
+Una CNN 1D pequeña con proyección final a \(d=3\). Para la primera emisión, en
+la que las fases son traslaciones del mismo template, se conserva el layout
+temporal mediante flattening: global pooling eliminaría la señal que define la
+fase. Global pooling se mantiene como control posterior de invariancia. En una
+variante futura con templates de distinta morfología podrá volver a ser la
+condición principal.
 
 ### Target encoder
 
@@ -485,7 +506,7 @@ El orden acordado propuesto es:
 
 La Etapa 0 quedó cerrada como reproducción mecanística parcial, la Etapa 1
 validó las convenciones algebraicas y las Etapas 2A–2B validaron el oracle y el
-generador compartido. El siguiente trabajo autorizado por este orden es
-congelar el primer protocolo neuronal con splits separados. Cualquier cambio en
-arquitectura, losses, inicialización, selección de checkpoint o gates debe
-fijarse antes de ejecutar las tres condiciones.
+generador compartido. El primer protocolo neuronal preservó el subespacio de
+fase pero falló el gate del predictor. El siguiente trabajo autorizado es una
+sensibilidad de un solo factor sobre EMA; no se ampliará a tres dinámicas ni se
+consultará test hasta resolver o caracterizar este desacople.

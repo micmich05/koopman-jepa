@@ -22,6 +22,10 @@ compara directamente protocolos distintos.
    comparación estática/cíclica/independiente con marginales idénticas.
 7. [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb):
    auditoría de la ley de emisión compartida antes del encoder neuronal.
+8. [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb):
+   primer entrenamiento sin acceso a la fase verdadera.
+9. [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb):
+   separación entre predictor entrenado y operadores post-hoc online/EMA.
 
 ## Registro completo
 
@@ -62,6 +66,8 @@ receta u objetivo autosupervisado no publicado, no en ausencia de señal.
 | [`stage1_four_phase_koopman_oracle.ipynb`](stage1_four_phase_koopman_oracle.ipynb) | PASS | Recupera rango activo 3 y espectro `{-1,i,-i}` con error espectral medio `1.14e-15`. |
 | [`stage2_phase_dynamics_oracle.ipynb`](stage2_phase_dynamics_oracle.ipynb) | PASS oracle | Con marginales idénticas recupera `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}`; distingue error por muestra de error contra la media condicional. |
 | [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb) | PASS datos | Reutiliza exactamente los mismos marginales observables, decodifica fase al `100%` y recupera las tres leyes temporales sin error. |
+| [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb) | FAIL | Aprende fase y rango 3, pero falla entrelazamiento (`1.278`) y espectro del predictor (error máximo `1.074`). |
+| [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb) | Diagnóstico | El post-hoc online recupera el espectro (error máximo `0.037`); el target EMA usa una base rezagada (`0.812`). |
 
 ## Convenciones
 

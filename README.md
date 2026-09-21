@@ -41,9 +41,19 @@ con diferencia máxima `0.00`, mientras el decoder de fase oracle alcanza
 `100%` y recupera las tres matrices de transición sin error. Esto confirma que
 la fase es observable pero la dinámica sólo se revela mediante el par temporal.
 
-El próximo paso es congelar el primer entrenamiento neuronal sobre splits con
-seeds distintas. Los PASS de Etapa 2A y 2B validan el oracle y el dataset; aún
-no constituyen aprendizaje de representaciones.
+El primer smoke neuronal está ejecutado en
+[`stage3_cyclic_neural_smoke.ipynb`](notebooks/stage3_cyclic_neural_smoke.ipynb)
+y dio `FAIL`. El encoder sí aprendió fase: probe `100%`, rango efectivo `2.846`
+y error de alineación `0.153`. Sin embargo, el predictor obtuvo error de
+entrelazamiento `1.278` y error espectral máximo `1.074`.
+
+El diagnóstico
+[`stage3_cyclic_neural_smoke_diagnostic.ipynb`](notebooks/stage3_cyclic_neural_smoke_diagnostic.ipynb)
+localiza la brecha. El operador post-hoc online→online recupera el espectro con
+error máximo `0.037`, mientras las bases online y EMA difieren `0.812`. La
+representación contiene la dinámica, pero el predictor del checkpoint temprano
+no funciona como endomorfismo Koopman. El siguiente control reducirá únicamente
+el momentum EMA para comprobar si el target rezagado causa esa discrepancia.
 
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
