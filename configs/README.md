@@ -9,6 +9,14 @@ identificación de acción y espectro. El criterio fue congelado antes de correr
 el resultado global registrado es negativo por la fila $\rho=1$ (7/10), aun
 cuando la calibración continua es fuerte.
 
+## Siguiente comparación congelada
+
+[`koopman_decay_baselines.yaml`](koopman_decay_baselines.yaml) fija, antes de
+implementarlos, los baselines que preguntan si el entrenamiento JEPA es
+necesario: DMD crudo, PCA+DMD, CNN aleatoria, techo supervisado y el predictor
+JEPA. Usa nuevas seeds emparejadas y reserva el held-out hasta congelar métodos,
+tests y configuración. Todavía no contiene resultados.
+
 ## Control base
 
 [`stage3_three_dynamics_control.yaml`](stage3_three_dynamics_control.yaml)
