@@ -26,6 +26,8 @@ compara directamente protocolos distintos.
    primer entrenamiento sin acceso a la fase verdadera.
 9. [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb):
    separación entre predictor entrenado y operadores post-hoc online/EMA.
+10. [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb):
+    sensibilidad de un solo factor con target EMA más rápido.
 
 ## Registro completo
 
@@ -68,6 +70,7 @@ receta u objetivo autosupervisado no publicado, no en ausencia de señal.
 | [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb) | PASS datos | Reutiliza exactamente los mismos marginales observables, decodifica fase al `100%` y recupera las tres leyes temporales sin error. |
 | [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb) | FAIL | Aprende fase y rango 3, pero falla entrelazamiento (`1.278`) y espectro del predictor (error máximo `1.074`). |
 | [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb) | Diagnóstico | El post-hoc online recupera el espectro (error máximo `0.037`); el target EMA usa una base rezagada (`0.812`). |
+| [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb) | FAIL | EMA `0.90` reduce el desacople de base a `0.182`, pero el predictor conserva error espectral `1.059`; el post-hoc online sigue correcto (`0.045`). |
 
 ## Convenciones
 

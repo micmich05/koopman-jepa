@@ -1,6 +1,6 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: primer smoke neuronal ejecutado (FAIL localizado); siguiente: sensibilidad EMA
+Estado: sensibilidad EMA ejecutada (FAIL parcial); siguiente: diagnóstico del predictor
 Fecha de actualización: 21 de septiembre de 2026
 
 ## Estado experimental
@@ -34,9 +34,13 @@ Fecha de actualización: 21 de septiembre de 2026
   recupera el espectro cíclico con error máximo `0.037`. La base online es
   estable entre tiempos (`0.019`), pero difiere fuertemente de la base target
   EMA (`0.812`). El predictor tampoco aproxima bien el mapa online→EMA.
-- **Siguiente:** repetir la misma seed y protocolo cambiando sólo el momentum
-  EMA de `0.99` a un seguimiento más rápido. El FAIL original no se modifica y
-  test permanece sin construir.
+- **Sensibilidad EMA `0.90` — FAIL.** Cambiar sólo el momentum redujo el
+  desacople online/EMA a `0.182` y el entrelazamiento a `0.759`, pero el error
+  espectral del predictor permaneció alto (`1.059`). El post-hoc online siguió
+  correcto (`0.045`). El lag era parte del problema, no una explicación
+  suficiente.
+- **Siguiente:** instrumentar movimiento y gradientes del predictor y luego
+  congelar una sensibilidad de su learning rate. Test permanece sin construir.
 
 ## 1. Objetivo
 
@@ -268,6 +272,12 @@ post-hoc online, pero no el predictor entrenado. El checkpoint de mínima loss
 ocurrió en época 3, cuando el target EMA todavía estaba muy rezagado. Antes de
 ampliar a tres dinámicas o múltiples seeds se hará una sensibilidad controlada
 del momentum EMA.
+
+La sensibilidad EMA rápida ya se ejecutó y mejoró el alineamiento online/target,
+pero no recuperó el espectro del predictor. No se seguirá bajando momentum como
+barrido post-hoc. El próximo cambio deberá atacar y medir directamente la
+optimización del predictor, manteniendo fija la representación, los datos y los
+gates.
 
 ### Etapa 4 — Robustez y selección de modos
 
@@ -508,5 +518,6 @@ La Etapa 0 quedó cerrada como reproducción mecanística parcial, la Etapa 1
 validó las convenciones algebraicas y las Etapas 2A–2B validaron el oracle y el
 generador compartido. El primer protocolo neuronal preservó el subespacio de
 fase pero falló el gate del predictor. El siguiente trabajo autorizado es una
-sensibilidad de un solo factor sobre EMA; no se ampliará a tres dinámicas ni se
-consultará test hasta resolver o caracterizar este desacople.
+instrumentación del predictor seguida por una sensibilidad de un solo factor
+sobre su optimización; no se ampliará a tres dinámicas ni se consultará test
+hasta resolver o caracterizar este desacople.

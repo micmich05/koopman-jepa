@@ -55,6 +55,15 @@ representación contiene la dinámica, pero el predictor del checkpoint temprano
 no funciona como endomorfismo Koopman. El siguiente control reducirá únicamente
 el momentum EMA para comprobar si el target rezagado causa esa discrepancia.
 
+Ese control está ejecutado en
+[`stage3_cyclic_neural_ema_fast_smoke.ipynb`](notebooks/stage3_cyclic_neural_ema_fast_smoke.ipynb)
+y también dio `FAIL`. Bajar EMA de `0.99` a `0.90` redujo el desacople de bases
+de `0.812` a `0.182` y el error de entrelazamiento de `1.278` a `0.759`, pero el
+error espectral del predictor apenas cambió (`1.074→1.059`). El post-hoc online
+permanece correcto (`0.045`). EMA era parte del problema, pero no basta; el
+siguiente diagnóstico instrumentará la optimización del predictor antes de
+cambiar su learning rate.
+
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman
