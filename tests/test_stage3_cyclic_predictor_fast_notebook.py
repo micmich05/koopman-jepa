@@ -70,5 +70,8 @@ def test_stage3_cyclic_predictor_fast_notebook_is_executed() -> None:
     assert '"best_trace_spectral_error": 0.04535271957022435' in rendered_output
     assert '"best_trace_predictor_online_error": 0.045100050040543974' in rendered_output
     assert '"predictor_fast_gate_passed": false' in rendered_output
+    assert '"val_prediction_loss": {' in rendered_output
+    assert '"epoch": 1' in rendered_output
     assert "Gate cíclico con predictor `4×`: **FAIL**" in rendered_output
     assert "sí cruza el gate espectral durante el entrenamiento" in rendered_output
+    assert "Mínimo de validation prediction loss: época **1**" in rendered_output
