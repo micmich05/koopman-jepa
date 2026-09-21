@@ -5,14 +5,25 @@ import pytest
 from koopman_jepa.config import ExperimentConfig, TrainConfig, load_config, validate_config
 
 
-def test_smoke_config_loads() -> None:
-    path = Path(__file__).parents[1] / "configs" / "phase0_smoke.yaml"
+def test_minimal_training_config_loads(tmp_path: Path) -> None:
+    path = tmp_path / "training.yaml"
+    path.write_text(
+        """\
+data:
+  context_length: 128
+model:
+  predictor_init: random
+train:
+  seed: 7
+""",
+        encoding="utf-8",
+    )
     config = load_config(path)
     validate_config(config)
 
     assert config.data.context_length == 128
-    assert config.model.predictor_init == "identity"
-    assert config.train.seed == 0
+    assert config.model.predictor_init == "random"
+    assert config.train.seed == 7
 
 
 def test_predictor_learning_rate_multiplier_must_be_positive() -> None:

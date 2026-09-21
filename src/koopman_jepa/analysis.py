@@ -43,7 +43,6 @@ def covariance_statistics(embeddings: np.ndarray) -> dict[str, Any]:
         "effective_rank": effective_rank,
     }
 
-
 def separation_statistics(
     embeddings: np.ndarray,
     labels: np.ndarray,
@@ -303,44 +302,3 @@ def predictor_subspace_statistics(
         "active_eigenvalues": _complex_list(reduced_eigenvalues),
         "full_eigenvalues": _complex_list(np.linalg.eigvals(matrix)),
     }
-
-
-def evaluate_phase0(
-    train_embeddings: np.ndarray,
-    train_labels: np.ndarray,
-    test_embeddings: np.ndarray,
-    test_target_embeddings: np.ndarray,
-    test_labels: np.ndarray,
-    predictor_matrix: np.ndarray,
-    num_regimes: int,
-    seed: int,
-) -> dict[str, Any]:
-    online_centroids = regime_centroids(test_embeddings, test_labels, num_regimes)
-    target_centroids = regime_centroids(test_target_embeddings, test_labels, num_regimes)
-
-    metrics: dict[str, Any] = {}
-    metrics.update(covariance_statistics(test_embeddings))
-    metrics.update(separation_statistics(test_embeddings, test_labels, num_regimes))
-    metrics.update(clustering_scores(test_embeddings, test_labels, num_regimes, seed))
-    metrics["nearest_centroid_accuracy"] = nearest_centroid_accuracy(
-        train_embeddings,
-        train_labels,
-        test_embeddings,
-        test_labels,
-        num_regimes,
-    )
-    metrics["linear_probe_accuracy"] = linear_probe_accuracy(
-        train_embeddings,
-        train_labels,
-        test_embeddings,
-        test_labels,
-        seed,
-    )
-    metrics.update(
-        predictor_subspace_statistics(
-            predictor_matrix,
-            online_centroids,
-            target_centroids,
-        )
-    )
-    return metrics

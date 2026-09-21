@@ -4,7 +4,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "configs" / "koopman_decay_generalization.yaml"
-PROTOCOL_PATH = ROOT / "docs" / "DECAY_GENERALIZATION_PROTOCOL.md"
+PROTOCOL_PATH = ROOT / "docs" / "EXPERIMENT.md"
 
 
 def test_decay_generalization_protocol_is_frozen_before_training() -> None:
@@ -23,7 +23,7 @@ def test_decay_generalization_protocol_is_frozen_before_training() -> None:
 def test_protocol_states_the_scientific_scope() -> None:
     protocol = PROTOCOL_PATH.read_text(encoding="utf-8")
 
-    assert "K_\\rho=\\rho C" in protocol
+    assert "Familia continua" in protocol
     assert "8/10 seeds" in protocol
-    assert "No habrá umbral de loss" in protocol
-    assert "no una confirmación final" in protocol
+    assert "La loss no interviene" in protocol
+    assert "criterio discreto global no pasa" in protocol

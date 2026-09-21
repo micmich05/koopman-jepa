@@ -47,7 +47,7 @@ class ExperimentConfig:
     data: DataConfig = field(default_factory=DataConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
-    output_dir: str = "runs/phase0"
+    output_dir: str = "runs"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -61,7 +61,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
         data=DataConfig(**raw.get("data", {})),
         model=ModelConfig(**raw.get("model", {})),
         train=TrainConfig(**raw.get("train", {})),
-        output_dir=raw.get("output_dir", "runs/phase0"),
+        output_dir=raw.get("output_dir", "runs"),
     )
 
 

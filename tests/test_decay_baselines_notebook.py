@@ -57,7 +57,7 @@ def test_baseline_validation_notebook_reports_every_frozen_method() -> None:
         "jepa_posthoc_dmd",
     ):
         assert method in source
-    assert "Esto no decide la hipótesis" in source
+    assert "No ejecutamos la comparación confirmatoria" in source
 
 
 def test_baseline_validation_notebook_records_development_result() -> None:

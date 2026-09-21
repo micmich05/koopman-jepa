@@ -26,9 +26,6 @@ dev = [
   "ruff>=0.9",
 ]
 
-[project.scripts]
-koopman-jepa-phase0 = "koopman_jepa.phase0:main"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/koopman_jepa"]
 

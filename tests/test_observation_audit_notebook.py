@@ -6,11 +6,11 @@ import yaml
 from koopman_jepa.phase_data import PhaseWindowConfig, validate_phase_window_config
 
 
-def test_stage2_phase_observation_config_is_valid() -> None:
+def test_phase_observation_config_is_valid() -> None:
     path = (
         Path(__file__).parents[1]
         / "configs"
-        / "stage2_phase_observation_audit.yaml"
+        / "observation_audit.yaml"
     )
     with path.open(encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
@@ -23,11 +23,11 @@ def test_stage2_phase_observation_config_is_valid() -> None:
     assert config["gates"]["require_exact_shared_marginals"] is True
 
 
-def test_stage2_phase_observation_notebook_is_executed() -> None:
+def test_phase_observation_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
-        / "stage2_phase_observation_audit.ipynb"
+        / "observation_audit.ipynb"
     )
     with path.open(encoding="utf-8") as handle:
         notebook = json.load(handle)
@@ -36,7 +36,7 @@ def test_stage2_phase_observation_notebook_is_executed() -> None:
     ]
     source = "\n".join("".join(cell["source"]) for cell in code_cells)
 
-    assert "stage2_phase_observation_audit.yaml" in source
+    assert "observation_audit.yaml" in source
     assert "make_shared_phase_observation_bundle" in source
     assert "nearest_template_phase_predictions" in source
     assert "exact_shared_marginals" in source
@@ -52,7 +52,7 @@ def test_stage2_phase_observation_notebook_is_executed() -> None:
     rendered = json.dumps(notebook, ensure_ascii=False)
     assert "sólo cambia el acoplamiento temporal" in rendered
     assert "no como encoder aprendido" in rendered
-    assert "Gate de auditoría de Etapa 2B: **PASS**" in rendered
+    assert "Auditoría de datos: **PASS**" in rendered
     assert "Máxima diferencia entre marginales observables pareados: **0.00e+00**" in rendered
     assert "Peor accuracy del decoder de fase oracle: **100.00%**" in rendered
     assert "Máximo error de las transiciones decodificadas: **0.00e+00**" in rendered

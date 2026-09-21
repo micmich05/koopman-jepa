@@ -4,8 +4,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK_PATH = ROOT / "notebooks" / "stage3_three_dynamics_control.ipynb"
-CONFIG_PATH = ROOT / "configs" / "stage3_three_dynamics_control.yaml"
+NOTEBOOK_PATH = ROOT / "notebooks" / "three_dynamics_experiment.ipynb"
+CONFIG_PATH = ROOT / "configs" / "three_dynamics.yaml"
 
 
 def _notebook() -> dict:
@@ -56,7 +56,7 @@ def test_three_dynamics_control_records_the_frozen_result() -> None:
     assert rendered_output.count('"correct_spectrum_seeds\\": 10') == 3
     assert rendered_output.count('"full_rank_seeds\\": 10') == 3
     assert '"loss_used_for_decision\\": false' in rendered_output
-    assert "las tres condiciones superan el criterio predeclarado" in rendered_output
+    assert "el predictor identifica la dinámica" in rendered_output
     assert sum(
         "image/png" in output.get("data", {})
         for cell in notebook["cells"]

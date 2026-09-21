@@ -3,7 +3,6 @@ import numpy as np
 from koopman_jepa.analysis import (
     calibration_statistics,
     clustering_diagnostics,
-    evaluate_phase0,
     exact_one_sided_sign_flip_test,
     linear_probe_accuracy,
     predictor_subspace_statistics,
@@ -18,25 +17,6 @@ def test_identity_is_recovered_on_oracle_centroid_span() -> None:
     assert metrics["centroid_identity_error"] < 1e-12
     assert metrics["active_identity_error"] < 1e-12
     assert metrics["active_eigenvalue_one_error"] < 1e-12
-
-
-def test_oracle_regime_embeddings_score_perfectly() -> None:
-    labels = np.repeat(np.arange(3), 10)
-    embeddings = np.eye(3)[labels]
-    metrics = evaluate_phase0(
-        train_embeddings=embeddings,
-        train_labels=labels,
-        test_embeddings=embeddings,
-        test_target_embeddings=embeddings,
-        test_labels=labels,
-        predictor_matrix=np.eye(3),
-        num_regimes=3,
-        seed=0,
-    )
-
-    assert metrics["nearest_centroid_accuracy"] == 1.0
-    assert metrics["linear_probe_accuracy"] == 1.0
-    assert metrics["kmeans_purity"] == 1.0
 
 
 def test_collapsed_centroids_report_undefined_active_metrics() -> None:

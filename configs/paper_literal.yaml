@@ -1,9 +1,0 @@
-data:
-  master_length: 1024
-  context_length: 768
-  shift: 256
-  train_per_regime: 7000
-  val_per_regime: 2000
-  test_per_regime: 1000
-  base_seed: 0
-  normalization: per_sequence

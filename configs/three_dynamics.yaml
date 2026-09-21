@@ -1,5 +1,6 @@
-dynamics: cyclic
-base_seed: 0
+experiment: three_dynamics
+dynamics: [static, cyclic, independent]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 emission:
   num_phases: 4
@@ -24,7 +25,7 @@ model:
   predictor_init: random
 
 train:
-  epochs: 30
+  epochs: 60
   batch_size: 128
   learning_rate: 0.001
   predictor_learning_rate_multiplier: 4.0
@@ -41,13 +42,12 @@ selection:
   metric: final_epoch
   mode: fixed
 
-gates:
-  maximum_validation_loss_ratio: 0.50
-  minimum_embedding_std_mean: 0.50
-  minimum_effective_rank: 2.50
-  minimum_linear_probe_accuracy: 0.90
-  maximum_phase_alignment_error: 0.35
+operator_identification:
+  candidates: [static, cyclic, independent]
+  minimum_correct_seeds_per_dynamics: 8
+  chance_probability: 0.3333333333333333
+  one_sided_tail_probability_at_threshold: 0.0034039526494944877
+
+diagnostics:
+  rollout_horizons: [1, 2, 3, 4, 8]
   required_active_rank: 3
-  maximum_intertwining_error: 0.35
-  maximum_active_invariance_error: 0.20
-  maximum_spectral_error: 0.35

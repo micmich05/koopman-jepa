@@ -12,7 +12,7 @@
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,fit}
+\usetikzlibrary{arrows.meta,positioning}
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
@@ -23,15 +23,14 @@
 \definecolor{cyan}{HTML}{DCEEF5}
 \definecolor{green}{HTML}{24765A}
 \definecolor{softgray}{HTML}{F3F5F7}
-\definecolor{ink}{HTML}{20262E}
 \hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{6pt}
 \setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{\textcolor{navy}{Koopman-JEPA}}
-\rhead{\textcolor{navy}{Resumen experimental}}
+\lhead{\textcolor{navy}{Koopman--JEPA}}
+\rhead{\textcolor{navy}{Informe final}}
 \cfoot{\thepage}
 
 \newcommand{\resultbox}[1]{%
@@ -42,63 +41,64 @@
 \begin{document}
 
 \begin{center}
-  {\Huge\bfseries\color{navy} Koopman-JEPA}\par
+  {\Huge\bfseries\color{navy} Koopman--JEPA}\par
   \vspace{3mm}
   {\Large ¿Puede un JEPA aprender operadores dinámicos no triviales?}\par
-  \vspace{3mm}
-  {\large Control de tres dinámicas y generalización a decaimiento continuo}\par
   \vspace{2mm}
-  {\small 21 de septiembre de 2026}
+  {\large Informe final del experimento controlado}\par
+  \vspace{2mm}
+  {\small Septiembre de 2026}
 \end{center}
 
-\resultbox{Respuesta corta: sí, con un límite cuantitativo. El predictor
-identifica tres dinámicas extremas en 10/10 seeds y calibra una familia de
-decaimiento con MAE 0.027. La clasificación exacta de cinco niveles no supera
-el criterio global: el extremo cíclico queda en 7/10.}
+\resultbox{Sí, bajo los datos y la receta estudiados: el predictor identifica
+tres operadores en 10/10 seeds por condición y sigue una familia continua con
+MAE espectral 0.027. Esto demuestra posibilidad, no necesidad ni superioridad:
+DMD crudo y PCA+DMD también resuelven este dataset.}
 
 \section{Pregunta}
 
-Buscamos una representación $z_t=f_\theta(x_t)$ y un predictor lineal $M$ que
-satisfagan
+Buscamos una representación $z_t=f_\theta(x_t)$ y un predictor lineal $M$ tales
+que
 \[
 M z_t\approx z_{t+1}.
 \]
-Si el encoder aprende $z\approx A\psi$ y $K$ es el operador conocido sobre las
-variables de fase, la prueba central es
+Si $\psi(r_t)$ describe la fase verdadera, $K$ es su operador y el encoder
+aprende $z\approx A\psi$, la prueba relevante es
 \[
 \boxed{MA\approx AK}.
 \]
-Esta relación permite que el encoder elija su propia base: no exige que $M=K$,
-sino que ambos representen la misma dinámica en coordenadas diferentes.
+No exigimos $M=K$: el encoder puede elegir otra base. Medimos tanto la acción
+de $M$ como su espectro restringido al span activo de los centroides latentes.
 
-\section{Dataset controlado}
+\section{Datos y control causal}
 
-La variable oculta tiene cuatro fases $r\in\{0,1,2,3\}$. Cada fase produce una
+El estado oculto tiene cuatro fases $r\in\{0,1,2,3\}$. Cada fase genera una
 ventana de longitud 128:
 \[
 x_t[\tau]=a_t\,s_{r_t}(\tau-\delta_t)+b_t+\epsilon_{t,\tau},
 \]
-con amplitud, desplazamiento, offset y ruido independientes por ejemplo. Los
-mismos bancos de ventanas actuales y futuras se reutilizan en tres condiciones;
-sólo cambia el pairing temporal.
+con amplitud, offset, jitter temporal y ruido independientes. Los mismos bancos
+de ventanas actuales y futuras se reutilizan en todas las condiciones; sólo
+cambia el emparejamiento temporal.
 
 \begin{center}
-\begin{tabularx}{\textwidth}{@{}lXll@{}}
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
 \toprule
-\textbf{Condición} & \textbf{Pairing} & \textbf{Acción} & \textbf{Espectro activo}\\
+\textbf{Dinámica} & \textbf{Transición} & \textbf{Espectro activo}\\
 \midrule
-Estática & $r_{t+1}=r_t$ & conserva fase & $\{1,1,1\}$\\
-Cíclica & $r_{t+1}=r_t+1\pmod 4$ & rota fases & $\{-1,i,-i\}$\\
-Independiente & 16 pares balanceados & media cero & $\{0,0,0\}$\\
+Estática & $r_{t+1}=r_t$ & $\{1,1,1\}$\\
+Cíclica & $r_{t+1}=r_t+1\pmod 4$ & $\{-1,i,-i\}$\\
+Independiente & fase futura uniforme & $\{0,0,0\}$\\
 \bottomrule
 \end{tabularx}
 \end{center}
 
-Por seed y condición usamos 1024 pares de train y 256 de validation, ventanas
-$1\times128$ y marginales uniformes. Se repiten 10 seeds emparejadas. Así, una
-diferencia entre predictores sólo puede atribuirse a la transición temporal.
+Por seed y condición usamos 1024 pares de entrenamiento y 256 de validación.
+La prueba principal repite 10 seeds. La auditoría verifica marginales idénticos,
+transiciones correctas y fase perfectamente decodificable; una ventana aislada
+no revela a qué dinámica pertenece.
 
-\section{Arquitectura}
+\section{Arquitectura y supuestos}
 
 \begin{center}
 \resizebox{\textwidth}{!}{%
@@ -113,16 +113,14 @@ diferencia entre predictores sólo puede atribuirse a la transición temporal.
   arrow/.style={-{Latex[length=2mm]},thick,draw=navy}
 ]
 \node[box] (xt) {ventana actual\\$x_t\in\mathbb{R}^{1\times128}$};
-\node[box,right=of xt] (online) {encoder online\\Conv $1\to16$, $k=7$, $s=2$\\Conv $16\to32$, $k=5$, $s=2$\\Flatten $32\times32$\\Linear $1024\to3$};
+\node[box,right=of xt] (online) {encoder online\\Conv $1\to16\to32$\\Flatten, Linear $\to3$};
 \node[latent,right=of online] (zt) {$z_t\in\mathbb{R}^3$};
 \node[box,right=of zt] (pred) {predictor lineal\\$M\in\mathbb{R}^{3\times3}$\\sin bias};
 \node[latent,right=of pred] (zhat) {$\widehat z_{t+1}$};
-
-\node[box,below=22mm of xt] (xnext) {ventana futura\\$x_{t+1}$};
+\node[box,below=20mm of xt] (xnext) {ventana futura\\$x_{t+1}$};
 \node[box,right=of xnext] (target) {encoder target\\misma CNN\\stop-gradient};
 \node[latent,right=of target] (zplus) {$z^+_{t+1}$};
 \node[loss,right=22mm of zplus] (mse) {MSE predictiva};
-
 \draw[arrow] (xt)--(online);
 \draw[arrow] (online)--(zt);
 \draw[arrow] (zt)--(pred);
@@ -131,34 +129,27 @@ diferencia entre predictores sólo puede atribuirse a la transición temporal.
 \draw[arrow] (target)--(zplus);
 \draw[arrow] (zhat)--(mse);
 \draw[arrow] (zplus)--(mse);
-\draw[arrow,dashed] (online.south) -- node[left=2mm,font=\scriptsize,align=center]{EMA\\$0.90$} (target.north);
-\end{tikzpicture}
-}
+\draw[arrow,dashed] (online.south) -- node[left=2mm,font=\scriptsize]{EMA 0.90} (target.north);
+\end{tikzpicture}}
 \end{center}
 
-El encoder online usa AdamW con learning rate $10^{-3}$; el predictor usa
-$4\times10^{-3}$. El target se actualiza por EMA con momentum 0.90. El encoder
-se congela después de la época 3 y $M$ continúa hasta la época 60. La loss
-combina predicción y regularización anti-colapso de media, varianza y
-covarianza; esa loss no se usa para decidir si el operador fue identificado.
+Se entrena 60 épocas con AdamW. El predictor usa learning rate $4\times$ mayor;
+el encoder se congela tras la época 3 y el target se actualiza por EMA. La loss
+agrega regularización de media, varianza y covarianza para evitar colapso.
 
-\section{Evaluación}
+La dimensión latente 3 coincide con el rango verdadero y el freeze temprano
+estabiliza el ajuste de $M$. Ambos son supuestos del resultado, no propiedades
+generales de JEPA.
 
-Para cada modelo ajustamos la base de fase $A$ y calculamos
+\section{Resultado principal: tres operadores}
+
+Para cada candidato $d$ calculamos
 \[
-E_d(M,A)=\frac{\lVert MA-AK_d\rVert_F}{\lVert A\rVert_F},
-\qquad
-d\in\{\text{estática,cíclica,independiente}\}.
+E_d=\frac{\lVert MA-AK_d\rVert_F}{\lVert A\rVert_F}.
 \]
-La dinámica predicha minimiza $E_d$. Repetimos la clasificación usando los
-eigenvalues de $M$ restringido al span activo. Una seed sólo cuenta cuando ese
-span tiene rango 3.
-
-El criterio predeclarado fue al menos 8/10 seeds correctas por condición. Bajo
-elección aleatoria entre tres operadores,
-$P(X\geq8\mid n=10,p=1/3)\approx0.0034$.
-
-\section{Resultado principal}
+También comparamos los autovalores de $M$ en el span activo. El criterio fijado
+antes de correr fue al menos 8/10 seeds correctas por acción y por espectro.
+La loss no participa en esta decisión.
 
 \begin{center}
 \begin{tabular}{@{}lrrrr@{}}
@@ -172,46 +163,29 @@ Independiente & 10/10 & 10/10 & 0.015 & 0.981\\
 \end{tabular}
 \end{center}
 
-Las 30 corridas tienen rango activo 3 y probe lineal de fase del 100\%.
-
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/three_dynamics_operator_identification.png}
-\caption{Error mediano contra cada operador candidato. Las filas son las
-dinámicas verdaderas y las columnas los candidatos. La diagonal oscura es el
-mínimo en acción y espectro para las tres condiciones.}
+\caption{Error mediano contra cada candidato. Cada fila usa los mismos
+marginales observables y un pairing distinto. La diagonal es mínima tanto por
+acción como por espectro.}
 \end{figure}
-
-La figura descarta una explicación puramente visual. Los marginales son los
-mismos, pero $M$ cambia con el pairing. Los errores fuera de la diagonal quedan
-aproximadamente entre 0.85 y 1.58, lejos de los candidatos correctos.
-
-\section{Consistencia multi-step}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.86\textwidth]{figures/three_dynamics_rollout.png}
-\caption{Error $\lVert M^hA-AK^h\rVert_F/\lVert A\rVert_F$ frente al horizonte.}
+\caption{Error $\lVert M^hA-AK^h\rVert_F/\lVert A\rVert_F$. La identificación
+a un paso es clara; en estática y cíclica el error se acumula con el horizonte.}
 \end{figure}
 
-La condición independiente converge casi a cero desde $h=2$. En estática el
-error crece de 0.142 a aproximadamente 0.305 en $h=8$; en cíclica crece de
-0.068 a aproximadamente 0.377. El operador se identifica claramente a un paso,
-pero los pequeños errores se acumulan a horizontes largos.
+\section{Generalización a una intensidad continua}
 
-\section{Generalización a dinámica amortiguada}
-
-Para pasar de tres operadores separados a una familia continua definimos
+Interpolamos entre el ciclo $C$ y una transición uniforme $U$:
 \[
 P_\rho=\rho C+(1-\rho)U,
-\qquad
-K_\rho=\rho C,
-\qquad
-\operatorname{spec}(K_\rho)=\rho\{-1,i,-i\},
+\qquad K_\rho=\rho C,
+\qquad \operatorname{spec}(K_\rho)=\rho\{-1,i,-i\}.
 \]
-con $\rho\in\{0,.25,.5,.75,1\}$. $C$ es el ciclo y $U$ produce una fase
-futura uniforme e independiente. Las ventanas, los marginales, la arquitectura
-y la receta permanecen fijos; se entrenan 10 seeds por nivel.
 
 \begin{center}
 \begin{tabular}{@{}rrrr@{}}
@@ -227,63 +201,65 @@ $\boldsymbol{\rho}$ & \textbf{Acción} & \textbf{Espectro} & \textbf{Módulo med
 \end{tabular}
 \end{center}
 
-El criterio predeclarado exigía al menos 8/10 aciertos por acción y espectro
-en \emph{cada} fila. El resultado global formal es negativo porque $\rho=1$
-queda en 7/10; no se cambió el corte después de observar los datos.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{figures/decay_operator_identification.png}
-\caption{Error mediano frente a cinco operadores candidatos. Hay una diagonal
-clara, pero algunas seeds quedan más cerca del nivel inmediatamente inferior.}
-\end{figure}
-
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/decay_spectral_calibration.png}
-\caption{Izquierda: módulo espectral aprendido frente a $\rho$. Derecha:
-autovalores aprendidos y esperados en el plano complejo.}
+\caption{Izquierda: módulo espectral aprendido contra $\rho$. Derecha:
+autovalores esperados y aprendidos en el plano complejo.}
 \end{figure}
 
-La lectura continua es fuerte: el MAE entre $\rho$ y el módulo mediano es
-0.027; la recta de calibración tiene pendiente 0.937, intercepto 0.011 y
-$R^2=0.9998$. El sesgo es contractivo y crece en algunas seeds de $\rho=.75$
-y $1$. Así, el JEPA aprende el continuo amortiguado en promedio, pero todavía
-no cuantifica cada nivel con robustez seed-a-seed. El caso $\rho=1$ usa
-exactamente los mismos tensores que el ciclo anterior; la diferencia es que
-ahora compite contra candidatos vecinos como $\rho=.75$.
+La calibración continua tiene MAE 0.027, pendiente 0.937, intercepto 0.011 y
+$R^2=0.9998$. El criterio discreto de 8/10 en cada nivel no pasa porque
+$\rho=1$ queda en 7/10: algunas seeds eligen el nivel vecino por un sesgo
+contractivo. Se conservan ambas lecturas sin crear un nuevo umbral post-hoc.
 
-\section{Conclusión y límites}
+\section{¿JEPA es lo que hace el trabajo?}
 
-El experimento apoya que un JEPA puede aprender una restricción Koopman no
-trivial en un sistema sintético controlado. La extensión muestra además que el
-espectro responde casi linealmente a una tasa dinámica continua, aunque el
-criterio discreto más estricto no pasa en todas las seeds. No demuestra
-recuperación general del operador Koopman.
+Comparamos siete métodos sobre la misma familia continua. Esta tabla corresponde
+a una sola seed de validación: contextualiza el mecanismo, pero no es una
+comparación confirmatoria multiseed.
 
-\begin{itemize}
-  \item Sólo hay cuatro estados y la dimensión verdadera del latent es conocida.
-  \item El control conjunto usa validation, no una nueva partición ciega.
-  \item El encoder se congela temprano para estabilizar la optimización.
-  \item Los rollouts estático y cíclico acumulan error.
-  \item Sólo se varía una familia de un parámetro con el mismo mapa de
-        observación.
-  \item El predictor muestra un sesgo contractivo que confunde niveles vecinos
-        en algunas seeds.
-\end{itemize}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}Xrrr@{}}
+\toprule
+\textbf{Método} & \textbf{MAE espectral} & \textbf{MAE acción} & \textbf{Pendiente}\\
+\midrule
+Oracle de fase + OLS & 0.000 & 0.000 & 1.000\\
+Ventana cruda + DMD & 0.022 & 0.020 & 0.949\\
+PCA-3 + DMD & 0.011 & 0.011 & 0.975\\
+CNN aleatoria + DMD & 0.299 & 0.137 & 0.391\\
+CNN supervisada + DMD & 0.012 & 0.011 & 0.968\\
+JEPA + $M$ aprendido & 0.197 & 0.103 & 0.435\\
+Encoder JEPA + DMD post-hoc & 0.029 & 0.026 & 0.952\\
+\bottomrule
+\end{tabularx}
+\end{center}
 
-El próximo paso es repetir la familia $K_\rho$ sobre emisiones nuevas y ciegas,
-sin retocar la receta con estas mismas 50 corridas. Luego corresponde variar el
-mapa de observación o el número de fases y reducir el sesgo contractivo sin
-introducir los eigenvalues verdaderos en la loss.
+JEPA mejora a la CNN aleatoria, pero DMD crudo y PCA+DMD obtienen menor error.
+El encoder JEPA con DMD post-hoc mejora mucho al predictor entrenado, lo que
+sitúa el principal cuello de botella en la optimización conjunta de $M$. Este
+dataset no permite afirmar que JEPA sea necesario ni superior.
+
+\section{Conclusión exacta}
+
+\textbf{La evidencia sí apoya} que este JEPA puede representar una dinámica no
+trivial y que su espectro responde casi linealmente a la persistencia dinámica,
+bajo la arquitectura, dimensión latente, freeze, EMA, regularizadores y datos
+documentados.
+
+\textbf{La evidencia no apoya} recuperación general de Koopman, superioridad
+sobre métodos lineales, robustez fuera de distribución ni independencia de la
+receta. La comparación de baselines quedó en una seed de validación y su
+held-out no se abrió. El estudio se cierra con este alcance; no se atribuye al
+experimento una conclusión que no fue medida.
 
 \section*{Reproducibilidad}
 
-La extensión está en
-\path{notebooks/koopman_decay_generalization.ipynb} y su protocolo en
-\path{docs/DECAY_GENERALIZATION_PROTOCOL.md}. El control base permanece en
-\path{notebooks/stage3_three_dynamics_control.ipynb}. El repositorio
-incluye tests automáticos para datos, álgebra, entrenamiento y outputs de
-notebooks.
+El flujo completo está reducido a cinco notebooks ejecutados en
+\path{notebooks/}. Las cuatro configuraciones están en \path{configs/}, el
+diseño consolidado en \path{docs/EXPERIMENT.md} y la implementación reutilizable
+en \path{src/koopman_jepa/}. Los tests verifican datos, álgebra, entrenamiento y
+outputs versionados.
 
 \end{document}

@@ -4,8 +4,7 @@ import torch
 from torch import nn
 from torch.utils.data import TensorDataset
 
-from koopman_jepa.config import DataConfig, ExperimentConfig, ModelConfig, TrainConfig
-from koopman_jepa.data import make_phase0_datasets
+from koopman_jepa.config import ExperimentConfig, ModelConfig, TrainConfig
 from koopman_jepa.model import TemporalJEPA
 from koopman_jepa.training import (
     collect_embeddings,
@@ -15,6 +14,14 @@ from koopman_jepa.training import (
     train_model,
     train_model_with_validation_checkpoint,
 )
+
+
+def _paired_dataset(seed: int, sample_count: int = 12) -> TensorDataset:
+    generator = torch.Generator().manual_seed(seed)
+    current = torch.randn(sample_count, 1, 32, generator=generator)
+    future = torch.roll(current, shifts=1, dims=-1)
+    labels = torch.arange(sample_count) % 3
+    return TensorDataset(current, future, labels)
 
 
 class _MeanEncoder(nn.Module):
@@ -51,17 +58,11 @@ def test_optimizer_can_accelerate_only_the_predictor() -> None:
 
 def test_one_training_epoch_updates_the_predictor() -> None:
     config = ExperimentConfig(
-        data=DataConfig(
-            context_length=32,
-            shift=8,
-            train_per_regime=2,
-            val_per_regime=1,
-            test_per_regime=1,
-        ),
         model=ModelConfig(latent_dim=3, channels=[4], predictor_init="identity"),
         train=TrainConfig(epochs=1, batch_size=6, learning_rate=1e-3),
     )
-    datasets = make_phase0_datasets(config.data, seed=config.train.seed)
+    train_dataset = _paired_dataset(seed=0)
+    validation_dataset = _paired_dataset(seed=1, sample_count=6)
     model = TemporalJEPA(
         latent_dim=config.model.latent_dim,
         channels=config.model.channels,
@@ -72,8 +73,8 @@ def test_one_training_epoch_updates_the_predictor() -> None:
 
     history = train_model(
         model,
-        datasets.train,
-        datasets.val,
+        train_dataset,
+        validation_dataset,
         config,
         torch.device("cpu"),
         epoch_callback=lambda epoch, _model, _row: callback_epochs.append(epoch),
@@ -119,13 +120,6 @@ def test_collect_embeddings_encodes_the_future_target_window() -> None:
 
 def test_fixed_horizon_can_freeze_encoder_and_keep_training_predictor() -> None:
     config = ExperimentConfig(
-        data=DataConfig(
-            context_length=32,
-            shift=8,
-            train_per_regime=2,
-            val_per_regime=1,
-            test_per_regime=1,
-        ),
         model=ModelConfig(latent_dim=3, channels=[4], predictor_init="random"),
         train=TrainConfig(
             epochs=2,
@@ -134,7 +128,8 @@ def test_fixed_horizon_can_freeze_encoder_and_keep_training_predictor() -> None:
             freeze_encoder_after_epoch=1,
         ),
     )
-    datasets = make_phase0_datasets(config.data, seed=0)
+    train_dataset = _paired_dataset(seed=0)
+    validation_dataset = _paired_dataset(seed=1, sample_count=6)
     model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
     encoder_snapshots: list[list[torch.Tensor]] = []
 
@@ -152,8 +147,8 @@ def test_fixed_horizon_can_freeze_encoder_and_keep_training_predictor() -> None:
 
     history = train_model(
         model,
-        datasets.train,
-        datasets.val,
+        train_dataset,
+        validation_dataset,
         config,
         torch.device("cpu"),
         epoch_callback=callback,
@@ -178,13 +173,6 @@ def test_fixed_horizon_can_freeze_encoder_and_keep_training_predictor() -> None:
 
 def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
     config = ExperimentConfig(
-        data=DataConfig(
-            context_length=32,
-            shift=8,
-            train_per_regime=2,
-            val_per_regime=1,
-            test_per_regime=1,
-        ),
         model=ModelConfig(latent_dim=3, channels=[4], predictor_init="random"),
         train=TrainConfig(
             epochs=2,
@@ -195,10 +183,11 @@ def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
             covariance_weight=1.0,
         ),
     )
-    datasets = make_phase0_datasets(config.data, seed=0)
+    train_dataset = _paired_dataset(seed=0)
+    validation_dataset = _paired_dataset(seed=1, sample_count=6)
     model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
 
-    baseline = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
+    baseline = evaluate_model_loss(model, validation_dataset, config, torch.device("cpu"))
     callback_epochs: list[int] = []
 
     def callback(
@@ -211,13 +200,13 @@ def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
 
     result = train_model_with_validation_checkpoint(
         model,
-        datasets.train,
-        datasets.val,
+        train_dataset,
+        validation_dataset,
         config,
         torch.device("cpu"),
         epoch_callback=callback,
     )
-    selected = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
+    selected = evaluate_model_loss(model, validation_dataset, config, torch.device("cpu"))
 
     assert math.isfinite(baseline.loss)
     assert len(result.history) == 2

@@ -2,11 +2,11 @@ import json
 from pathlib import Path
 
 
-def test_stage1_koopman_oracle_notebook_is_executed() -> None:
+def test_koopman_oracle_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
-        / "stage1_four_phase_koopman_oracle.ipynb"
+        / "koopman_oracle.ipynb"
     )
     with path.open(encoding="utf-8") as handle:
         notebook = json.load(handle)
@@ -30,5 +30,5 @@ def test_stage1_koopman_oracle_notebook_is_executed() -> None:
         for output in cell["outputs"]
     )
     rendered = json.dumps(notebook, ensure_ascii=False)
-    assert "Gate de Etapa 1: **PASS**" in rendered
+    assert "Comprobación matemática: **PASS**" in rendered
     assert "Error espectral medio/máximo: **1.14e-15 / 2.11e-15**" in rendered
