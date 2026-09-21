@@ -22,7 +22,7 @@ def test_freeze_long_config_changes_only_training_horizon() -> None:
     assert normalized == reference
 
 
-def test_stage3_cyclic_predictor_freeze_long_notebook_is_prepared() -> None:
+def test_stage3_cyclic_predictor_freeze_long_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -46,9 +46,28 @@ def test_stage3_cyclic_predictor_freeze_long_notebook_is_prepared() -> None:
     assert "evaluate_phase_operator_diagnostics" in source
     assert "test_constructed" in source
     assert "assert freeze_long_gate_passed" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output.get("output_type") != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
 
     rendered = json.dumps(notebook, ensure_ascii=False)
+    rendered_output = "\n".join(
+        "".join(output.get("text", []))
+        + "".join(output.get("data", {}).get("text/markdown", []))
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
     assert "cambia únicamente el horizonte" in rendered
     assert "test no se construye" in rendered
+    assert '"selected_epoch": 60' in rendered_output
+    assert '"validation_loss_ratio": 0.2363502413782027' in rendered_output
+    assert '"effective_rank": 2.9314755102885246' in rendered_output
+    assert '"linear_probe_accuracy": 1.0' in rendered_output
+    assert '"intertwining_error": 0.07823126813831092' in rendered_output
+    assert '"spectral_max_absolute_error": 0.07927158269898033' in rendered_output
+    assert '"trained_online_endomorphism_error": 0.06899964533352572' in rendered_output
+    assert '"freeze_long_gate_passed": true' in rendered_output
+    assert "Gate neuronal cíclico a 60 épocas: **PASS**" in rendered_output
