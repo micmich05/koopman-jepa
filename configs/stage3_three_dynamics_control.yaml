@@ -1,0 +1,53 @@
+experiment: stage3_three_dynamics_control
+dynamics: [static, cyclic, independent]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+emission:
+  num_phases: 4
+  window_length: 128
+  noise_std: 0.08
+  amplitude_low: 0.8
+  amplitude_high: 1.2
+  offset_std: 0.15
+  max_shift: 4
+  pulse_width: 0.055
+  secondary_offset: 0.1875
+  secondary_strength: 0.45
+
+splits:
+  train_repeats_per_transition: 64
+  validation_repeats_per_transition: 16
+
+model:
+  latent_dim: 3
+  channels: [16, 32]
+  pooling: flatten
+  predictor_init: random
+
+train:
+  epochs: 60
+  batch_size: 128
+  learning_rate: 0.001
+  predictor_learning_rate_multiplier: 4.0
+  freeze_encoder_after_epoch: 3
+  weight_decay: 0.0001
+  ema_momentum: 0.90
+  mean_weight: 1.0
+  variance_weight: 5.0
+  covariance_weight: 1.0
+  device: cpu
+  num_workers: 0
+
+selection:
+  metric: final_epoch
+  mode: fixed
+
+operator_identification:
+  candidates: [static, cyclic, independent]
+  minimum_correct_seeds_per_dynamics: 8
+  chance_probability: 0.3333333333333333
+  one_sided_tail_probability_at_threshold: 0.0034039526494944877
+
+diagnostics:
+  rollout_horizons: [1, 2, 3, 4, 8]
+  required_active_rank: 3

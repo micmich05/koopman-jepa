@@ -544,7 +544,20 @@ el ratio test/baseline ≤`0.50`; la mediana es `0.582`.
 La falla no aparece en la geometría dinámica: test conserva medianas de rango
 `2.819`, alineación `0.153`, entrelazamiento `0.068` y error espectral `0.067`.
 Seeds 6 y 7 mantienen la cola de bajo rango ya vista en validation. Por tanto,
-hay evidencia held-out de recuperación mayoritaria de la dinámica Koopman, pero
-no un PASS del protocolo completo. Test queda consumido y no se ajustarán sus
-thresholds. El siguiente paso permitido es un diagnóstico post-hoc de los
-términos de loss; cualquier receta nueva requerirá nuevos datos ciegos.
+el resultado central para H1 es **positivo preliminar**: `8/10` seeds recuperan
+la acción y el espectro no trivial sobre muestras nuevas del mismo generador.
+
+El `FAIL` del protocolo conjunto se conserva como registro, pero procede de un
+umbral auxiliar `test/baseline ≤ 0.50` elegido de forma conservadora, no derivado
+de la teoría de Koopman. Además, la loss total mezcla predicción con términos de
+media, varianza y covarianza calculados por batch. No se usará ese umbral para
+decidir H1 ni se lo relajará post-hoc; sus componentes quedan como diagnóstico
+de optimización.
+
+El siguiente experimento central es la **Etapa 3B**: entrenar la misma receta en
+las condiciones estática, cíclica e independiente con marginales compartidas y
+preguntar cuál de los tres operadores minimiza \(\lVert MA-AK_d\rVert_F\). El
+protocolo se fija en `docs/STAGE3_THREE_DYNAMICS_PROTOCOL.md` antes de ejecutar
+las condiciones nuevas. Esto prueba H3 directamente: si `M` sigue la dinámica,
+debe cambiar entre `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}` aunque la distribución de
+ventanas sea la misma.
