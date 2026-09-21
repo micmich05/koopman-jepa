@@ -16,12 +16,22 @@ def _cell_source(notebook: dict, cell_id: str) -> str:
     return "".join(cell["source"])
 
 
-def test_decay_notebook_is_prepared_but_not_executed() -> None:
+def test_decay_notebook_is_executed_without_errors() -> None:
     notebook = _notebook()
     code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
 
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(cell["outputs"] == [] for cell in code_cells)
+    assert [cell["execution_count"] for cell in code_cells] == list(range(1, 8))
+    assert not [
+        output
+        for cell in code_cells
+        for output in cell.get("outputs", [])
+        if output.get("output_type") == "error"
+    ]
+    assert sum(
+        "image/png" in output.get("data", {})
+        for cell in code_cells
+        for output in cell.get("outputs", [])
+    ) == 3
     for cell in code_cells:
         compile("".join(cell["source"]), NOTEBOOK_PATH.name, "exec")
 
@@ -94,3 +104,19 @@ def test_decay_notebook_postprocessing_accepts_numpy_scalars(monkeypatch) -> Non
 
     assert namespace["global_operator_result"] is True
     assert namespace["calibration_mae"] < 1e-12
+
+
+def test_decay_notebook_records_the_frozen_result() -> None:
+    notebook = _notebook()
+    rendered_output = json.dumps(notebook["cells"], ensure_ascii=False)
+
+    assert '"global_operator_result\\": false' in rendered_output
+    assert rendered_output.count('"full_rank_seeds\\": 10') == 5
+    assert '"correct_action_seeds\\": 10' in rendered_output
+    assert '"correct_action_seeds\\": 9' in rendered_output
+    assert '"correct_action_seeds\\": 8' in rendered_output
+    assert '"correct_action_seeds\\": 7' in rendered_output
+    assert '"correct_spectrum_seeds\\": 7' in rendered_output
+    assert '"calibration_mae\\": 0.027104698032484175' in rendered_output
+    assert '"calibration_r2\\": 0.999829653081684' in rendered_output
+    assert "al menos una condición no alcanza el criterio predeclarado" in rendered_output
