@@ -23,7 +23,7 @@ def test_heldout_config_freezes_development_recipe_and_replay() -> None:
     assert normalized == reference
 
 
-def test_stage3_cyclic_heldout_notebook_is_prepared_with_replay_barrier() -> None:
+def test_stage3_cyclic_heldout_notebook_is_executed_with_replay_barrier() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -47,9 +47,29 @@ def test_stage3_cyclic_heldout_notebook_is_prepared_with_replay_barrier() -> Non
     assert "test_seed == seed + 37" in source
     assert "heldout_gate_passed" in source
     assert "test_consumed" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output.get("output_type") != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
 
     rendered = json.dumps(notebook, ensure_ascii=False)
+    rendered_output = "\n".join(
+        "".join(output.get("text", []))
+        + "".join(output.get("data", {}).get("text/markdown", []))
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
     assert "Primera evaluación held-out" in rendered
     assert "sólo después del replay" in rendered
+    assert '"validation_replay_passed": true' in rendered_output
+    assert '"successful_seeds": 0' in rendered_output
+    assert '"median_test_loss_ratio": 0.5815977917787114' in rendered_output
+    assert '"median_effective_rank": 2.8191772553190275' in rendered_output
+    assert '"median_intertwining_error": 0.06822191509801676' in rendered_output
+    assert '"median_spectral_error": 0.06702866939299468' in rendered_output
+    assert '"heldout_gate_passed": false' in rendered_output
+    assert '"test_consumed": true' in rendered_output
+    assert "Gate held-out: **FAIL**" in rendered_output
+    assert "seed 10: validation_improves" in rendered_output
