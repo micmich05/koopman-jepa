@@ -23,6 +23,32 @@ class RidgeOperatorSelection:
         return features - self.feature_mean
 
 
+@dataclass(frozen=True, slots=True)
+class PCAFeatureMap:
+    """A PCA map fitted without labels on pooled train observations."""
+
+    observation_mean: np.ndarray
+    components: np.ndarray
+    explained_variance: np.ndarray
+
+    def transform(self, windows: np.ndarray) -> np.ndarray:
+        observations = flatten_windows(windows)
+        if observations.shape[1] != self.components.shape[1]:
+            raise ValueError("windows must match the fitted observation dimension")
+        return (observations - self.observation_mean) @ self.components.T
+
+
+@dataclass(frozen=True, slots=True)
+class PCAOperatorSelection:
+    """A PCA representation and its validation-selected linear operator."""
+
+    feature_map: PCAFeatureMap
+    operator: RidgeOperatorSelection
+
+    def transform(self, windows: np.ndarray) -> np.ndarray:
+        return self.operator.center(self.feature_map.transform(windows))
+
+
 def _feature_matrix(values: np.ndarray, name: str) -> np.ndarray:
     matrix = np.asarray(values, dtype=np.float64)
     if matrix.ndim != 2:
@@ -32,6 +58,50 @@ def _feature_matrix(values: np.ndarray, name: str) -> np.ndarray:
     if not np.isfinite(matrix).all():
         raise ValueError(f"{name} must contain only finite values")
     return matrix
+
+
+def flatten_windows(windows: np.ndarray) -> np.ndarray:
+    """Flatten all non-batch observation axes into a feature matrix."""
+
+    observations = np.asarray(windows, dtype=np.float64)
+    if observations.ndim < 2:
+        raise ValueError("windows must have a batch axis and observation axes")
+    if observations.shape[0] == 0 or any(size == 0 for size in observations.shape[1:]):
+        raise ValueError("windows must have non-empty batch and observation axes")
+    if not np.isfinite(observations).all():
+        raise ValueError("windows must contain only finite values")
+    return observations.reshape(observations.shape[0], -1)
+
+
+def fit_pca_feature_map(
+    train_current: np.ndarray,
+    train_future: np.ndarray,
+    n_components: int,
+) -> PCAFeatureMap:
+    """Fit PCA on the pooled current and future train marginals."""
+
+    current = flatten_windows(train_current)
+    future = flatten_windows(train_future)
+    if current.shape != future.shape:
+        raise ValueError("train current and future windows must have equal shape")
+    if not isinstance(n_components, int) or not 1 <= n_components <= min(
+        current.shape[1],
+        2 * current.shape[0],
+    ):
+        raise ValueError("n_components must fit the pooled observation matrix")
+
+    pooled = np.concatenate([current, future], axis=0)
+    observation_mean = pooled.mean(axis=0)
+    _, singular_values, right_vectors = np.linalg.svd(
+        pooled - observation_mean,
+        full_matrices=False,
+    )
+    explained_variance = np.square(singular_values[:n_components]) / (pooled.shape[0] - 1)
+    return PCAFeatureMap(
+        observation_mean=observation_mean,
+        components=right_vectors[:n_components],
+        explained_variance=explained_variance,
+    )
 
 
 def _paired_features(
@@ -128,3 +198,42 @@ def select_ridge_operator(
         validation_mse=validation_mses[selected],
         validation_mse_by_regularization=validation_mses,
     )
+
+
+def fit_raw_window_dmd(
+    train_current: np.ndarray,
+    train_future: np.ndarray,
+    validation_current: np.ndarray,
+    validation_future: np.ndarray,
+    regularizations: Sequence[float],
+) -> RidgeOperatorSelection:
+    """Fit validation-selected DMD directly on flattened windows."""
+
+    return select_ridge_operator(
+        flatten_windows(train_current),
+        flatten_windows(train_future),
+        flatten_windows(validation_current),
+        flatten_windows(validation_future),
+        regularizations,
+    )
+
+
+def fit_pca_dmd(
+    train_current: np.ndarray,
+    train_future: np.ndarray,
+    validation_current: np.ndarray,
+    validation_future: np.ndarray,
+    n_components: int,
+    regularizations: Sequence[float],
+) -> PCAOperatorSelection:
+    """Fit an unsupervised PCA bottleneck followed by ridge-DMD."""
+
+    feature_map = fit_pca_feature_map(train_current, train_future, n_components)
+    operator = select_ridge_operator(
+        feature_map.transform(train_current),
+        feature_map.transform(train_future),
+        feature_map.transform(validation_current),
+        feature_map.transform(validation_future),
+        regularizations,
+    )
+    return PCAOperatorSelection(feature_map=feature_map, operator=operator)
