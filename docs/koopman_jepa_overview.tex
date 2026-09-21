@@ -46,14 +46,15 @@
   \vspace{3mm}
   {\Large ¿Puede un JEPA aprender operadores dinámicos no triviales?}\par
   \vspace{3mm}
-  {\large Resumen del sistema de cuatro fases y el control de tres dinámicas}\par
+  {\large Control de tres dinámicas y generalización a decaimiento continuo}\par
   \vspace{2mm}
   {\small 21 de septiembre de 2026}
 \end{center}
 
-\resultbox{Respuesta corta: sí, en este sistema sintético. Con marginales
-idénticas, el predictor identifica estática, cíclica e independiente en
-10/10 seeds por condición, tanto por acción como por espectro.}
+\resultbox{Respuesta corta: sí, con un límite cuantitativo. El predictor
+identifica tres dinámicas extremas en 10/10 seeds y calibra una familia de
+decaimiento con MAE 0.027. La clasificación exacta de cinco niveles no supera
+el criterio global: el extremo cíclico queda en 7/10.}
 
 \section{Pregunta}
 
@@ -198,31 +199,91 @@ error crece de 0.142 a aproximadamente 0.305 en $h=8$; en cíclica crece de
 0.068 a aproximadamente 0.377. El operador se identifica claramente a un paso,
 pero los pequeños errores se acumulan a horizontes largos.
 
+\section{Generalización a dinámica amortiguada}
+
+Para pasar de tres operadores separados a una familia continua definimos
+\[
+P_\rho=\rho C+(1-\rho)U,
+\qquad
+K_\rho=\rho C,
+\qquad
+\operatorname{spec}(K_\rho)=\rho\{-1,i,-i\},
+\]
+con $\rho\in\{0,.25,.5,.75,1\}$. $C$ es el ciclo y $U$ produce una fase
+futura uniforme e independiente. Las ventanas, los marginales, la arquitectura
+y la receta permanecen fijos; se entrenan 10 seeds por nivel.
+
+\begin{center}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+$\boldsymbol{\rho}$ & \textbf{Acción} & \textbf{Espectro} & \textbf{Módulo mediano}\\
+\midrule
+0.00 & 10/10 & 10/10 & 0.016\\
+0.25 & 10/10 & 10/10 & 0.239\\
+0.50 & 9/10 & 9/10 & 0.476\\
+0.75 & 8/10 & 8/10 & 0.718\\
+1.00 & 7/10 & 7/10 & 0.948\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+El criterio predeclarado exigía al menos 8/10 aciertos por acción y espectro
+en \emph{cada} fila. El resultado global formal es negativo porque $\rho=1$
+queda en 7/10; no se cambió el corte después de observar los datos.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/decay_operator_identification.png}
+\caption{Error mediano frente a cinco operadores candidatos. Hay una diagonal
+clara, pero algunas seeds quedan más cerca del nivel inmediatamente inferior.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/decay_spectral_calibration.png}
+\caption{Izquierda: módulo espectral aprendido frente a $\rho$. Derecha:
+autovalores aprendidos y esperados en el plano complejo.}
+\end{figure}
+
+La lectura continua es fuerte: el MAE entre $\rho$ y el módulo mediano es
+0.027; la recta de calibración tiene pendiente 0.937, intercepto 0.011 y
+$R^2=0.9998$. El sesgo es contractivo y crece en algunas seeds de $\rho=.75$
+y $1$. Así, el JEPA aprende el continuo amortiguado en promedio, pero todavía
+no cuantifica cada nivel con robustez seed-a-seed. El caso $\rho=1$ usa
+exactamente los mismos tensores que el ciclo anterior; la diferencia es que
+ahora compite contra candidatos vecinos como $\rho=.75$.
+
 \section{Conclusión y límites}
 
 El experimento apoya que un JEPA puede aprender una restricción Koopman no
-trivial en un sistema sintético controlado. No demuestra recuperación general
-del operador Koopman.
+trivial en un sistema sintético controlado. La extensión muestra además que el
+espectro responde casi linealmente a una tasa dinámica continua, aunque el
+criterio discreto más estricto no pasa en todas las seeds. No demuestra
+recuperación general del operador Koopman.
 
 \begin{itemize}
   \item Sólo hay cuatro estados y la dimensión verdadera del latent es conocida.
   \item El control conjunto usa validation, no una nueva partición ciega.
   \item El encoder se congela temprano para estabilizar la optimización.
   \item Los rollouts estático y cíclico acumulan error.
-  \item Faltan observación parcial, ruido fuera de distribución y eigenvalues
-        con módulo menor que uno.
+  \item Sólo se varía una familia de un parámetro con el mismo mapa de
+        observación.
+  \item El predictor muestra un sesgo contractivo que confunde niveles vecinos
+        en algunas seeds.
 \end{itemize}
 
-El próximo paso es congelar el control completo y repetirlo sobre nuevas
-realizaciones ciegas. Luego corresponde estabilizar $M^h$ sin introducir los
-eigenvalues verdaderos en la loss.
+El próximo paso es repetir la familia $K_\rho$ sobre emisiones nuevas y ciegas,
+sin retocar la receta con estas mismas 50 corridas. Luego corresponde variar el
+mapa de observación o el número de fases y reducir el sesgo contractivo sin
+introducir los eigenvalues verdaderos en la loss.
 
 \section*{Reproducibilidad}
 
-El notebook principal es
-\texttt{notebooks/stage3\_three\_dynamics\_control.ipynb}; el protocolo
-predeclarado está en
-\texttt{docs/STAGE3\_THREE\_DYNAMICS\_PROTOCOL.md}. El repositorio incluye 178
-tests automáticos para datos, álgebra, entrenamiento y outputs de notebooks.
+La extensión está en
+\path{notebooks/koopman_decay_generalization.ipynb} y su protocolo en
+\path{docs/DECAY_GENERALIZATION_PROTOCOL.md}. El control base permanece en
+\path{notebooks/stage3_three_dynamics_control.ipynb}. El repositorio
+incluye tests automáticos para datos, álgebra, entrenamiento y outputs de
+notebooks.
 
 \end{document}

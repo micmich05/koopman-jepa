@@ -1,6 +1,6 @@
 # Notebooks
 
-La lectura principal tiene cinco notebooks. Juntos responden una sola pregunta:
+La lectura principal tiene seis notebooks. Juntos responden una sola pregunta:
 ¿un JEPA temporal puede aprender un predictor lineal cuya acción y espectro
 cambien con la dinámica, aun cuando las observaciones marginales sean iguales?
 
@@ -11,10 +11,11 @@ cambien con la dinámica, aun cuando las observaciones marginales sean iguales?
 | El generador no filtra la respuesta por los marginales | [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb) | Las tres condiciones reutilizan exactamente las mismas ventanas; sólo cambia el pairing temporal. |
 | El caso neuronal cíclico es reproducible | [`stage3_cyclic_multiseed_development.ipynb`](stage3_cyclic_multiseed_development.ipynb) | La representación y el predictor recuperan el ciclo en 8/10 seeds bajo los criterios absolutos originales. |
 | El predictor neuronal sigue la dinámica | [`stage3_three_dynamics_control.ipynb`](stage3_three_dynamics_control.ipynb) | Acción y espectro identifican la condición correcta en 10/10 seeds para cada una de las tres dinámicas. |
+| El espectro sigue una tasa continua de memoria | [`koopman_decay_generalization.ipynb`](koopman_decay_generalization.ipynb) | El módulo aprendido calibra cinco valores de $\rho$ con MAE `0.027` y $R^2=0.9998`; el criterio exacto global no pasa porque $\rho=1$ obtiene 7/10. |
 
-El último notebook contiene las figuras y la conclusión principal. Es un
-experimento de desarrollo sobre validation; todavía no es una evaluación ciega
-de todo el control de tres condiciones.
+Los dos últimos notebooks contienen las figuras y las conclusiones principales.
+Ambos son experimentos de desarrollo sobre validation; todavía no constituyen
+una evaluación ciega de todo el protocolo.
 
 ## Material secundario
 
