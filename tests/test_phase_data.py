@@ -158,9 +158,31 @@ def test_tensor_splits_use_distinct_seeds_and_phase_pair_labels() -> None:
     assert val_labels.shape == (32, 2)
     assert splits.train_seed == 52
     assert splits.validation_seed == 64
+    assert splits.test is None
+    assert splits.test_seed is None
     assert torch.equal(train_context, replay.train["cyclic"].tensors[0])
     assert not torch.equal(train_context[:32], val_context)
     assert torch.all(train_labels[:, 1] == (train_labels[:, 0] + 1) % 4)
+
+
+def test_tensor_splits_materialize_independent_test_only_when_requested() -> None:
+    config = PhaseWindowConfig(window_length=64)
+    splits = make_phase_tensor_dataset_splits(
+        config,
+        train_repeats_per_transition=3,
+        validation_repeats_per_transition=2,
+        test_repeats_per_transition=2,
+        seed=41,
+    )
+
+    assert splits.test is not None
+    assert splits.test_seed == 78
+    test_context, test_future, test_labels = splits.test["cyclic"].tensors
+    validation_context = splits.validation["cyclic"].tensors[0]
+    assert test_context.shape == test_future.shape == (32, 1, 64)
+    assert test_labels.shape == (32, 2)
+    assert not torch.equal(test_context, validation_context)
+    assert torch.all(test_labels[:, 1] == (test_labels[:, 0] + 1) % 4)
 
 
 def test_tensor_split_rejects_non_positive_repeat_counts() -> None:
@@ -169,3 +191,11 @@ def test_tensor_split_rejects_non_positive_repeat_counts() -> None:
         make_phase_tensor_dataset_splits(config, 0, 2, seed=1)
     with np.testing.assert_raises_regex(ValueError, "validation_repeats_per_transition"):
         make_phase_tensor_dataset_splits(config, 2, 0, seed=1)
+    with np.testing.assert_raises_regex(ValueError, "test_repeats_per_transition"):
+        make_phase_tensor_dataset_splits(
+            config,
+            2,
+            1,
+            seed=1,
+            test_repeats_per_transition=0,
+        )

@@ -54,6 +54,8 @@ class PhaseTensorDatasetSplits:
     validation: dict[PhaseDynamics, TensorDataset]
     train_seed: int
     validation_seed: int
+    test: dict[PhaseDynamics, TensorDataset] | None = None
+    test_seed: int | None = None
 
 
 def validate_phase_window_config(config: PhaseWindowConfig) -> None:
@@ -265,15 +267,19 @@ def make_phase_tensor_dataset_splits(
     train_repeats_per_transition: int,
     validation_repeats_per_transition: int,
     seed: int,
+    test_repeats_per_transition: int | None = None,
 ) -> PhaseTensorDatasetSplits:
-    """Create train/validation observations from disjoint deterministic seeds."""
+    """Create deterministic disjoint splits, materializing test only on request."""
 
     if train_repeats_per_transition < 1:
         raise ValueError("train_repeats_per_transition must be positive")
     if validation_repeats_per_transition < 1:
         raise ValueError("validation_repeats_per_transition must be positive")
+    if test_repeats_per_transition is not None and test_repeats_per_transition < 1:
+        raise ValueError("test_repeats_per_transition must be positive")
     train_seed = seed + 11
     validation_seed = seed + 23
+    test_seed = seed + 37 if test_repeats_per_transition is not None else None
     train_bundle = make_shared_phase_observation_bundle(
         replace(config, repeats_per_transition=train_repeats_per_transition),
         seed=train_seed,
@@ -281,6 +287,14 @@ def make_phase_tensor_dataset_splits(
     validation_bundle = make_shared_phase_observation_bundle(
         replace(config, repeats_per_transition=validation_repeats_per_transition),
         seed=validation_seed,
+    )
+    test_bundle = (
+        make_shared_phase_observation_bundle(
+            replace(config, repeats_per_transition=test_repeats_per_transition),
+            seed=test_seed,
+        )
+        if test_repeats_per_transition is not None and test_seed is not None
+        else None
     )
     return PhaseTensorDatasetSplits(
         train={
@@ -293,4 +307,13 @@ def make_phase_tensor_dataset_splits(
         },
         train_seed=train_seed,
         validation_seed=validation_seed,
+        test=(
+            {
+                dynamics: phase_condition_tensor_dataset(condition)
+                for dynamics, condition in test_bundle.conditions.items()
+            }
+            if test_bundle is not None
+            else None
+        ),
+        test_seed=test_seed,
     )
