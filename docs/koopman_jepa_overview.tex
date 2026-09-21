@@ -1,0 +1,228 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+\geometry{margin=22mm,headheight=14pt}
+\definecolor{navy}{HTML}{17324D}
+\definecolor{blue}{HTML}{2C6E9B}
+\definecolor{cyan}{HTML}{DCEEF5}
+\definecolor{green}{HTML}{24765A}
+\definecolor{softgray}{HTML}{F3F5F7}
+\definecolor{ink}{HTML}{20262E}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textcolor{navy}{Koopman-JEPA}}
+\rhead{\textcolor{navy}{Resumen experimental}}
+\cfoot{\thepage}
+
+\newcommand{\resultbox}[1]{%
+  \begin{center}
+  \fcolorbox{green}{cyan}{\parbox{0.90\textwidth}{\centering\bfseries\color{navy}#1}}
+  \end{center}}
+
+\begin{document}
+
+\begin{center}
+  {\Huge\bfseries\color{navy} Koopman-JEPA}\par
+  \vspace{3mm}
+  {\Large ¿Puede un JEPA aprender operadores dinámicos no triviales?}\par
+  \vspace{3mm}
+  {\large Resumen del sistema de cuatro fases y el control de tres dinámicas}\par
+  \vspace{2mm}
+  {\small 21 de septiembre de 2026}
+\end{center}
+
+\resultbox{Respuesta corta: sí, en este sistema sintético. Con marginales
+idénticas, el predictor identifica estática, cíclica e independiente en
+10/10 seeds por condición, tanto por acción como por espectro.}
+
+\section{Pregunta}
+
+Buscamos una representación $z_t=f_\theta(x_t)$ y un predictor lineal $M$ que
+satisfagan
+\[
+M z_t\approx z_{t+1}.
+\]
+Si el encoder aprende $z\approx A\psi$ y $K$ es el operador conocido sobre las
+variables de fase, la prueba central es
+\[
+\boxed{MA\approx AK}.
+\]
+Esta relación permite que el encoder elija su propia base: no exige que $M=K$,
+sino que ambos representen la misma dinámica en coordenadas diferentes.
+
+\section{Dataset controlado}
+
+La variable oculta tiene cuatro fases $r\in\{0,1,2,3\}$. Cada fase produce una
+ventana de longitud 128:
+\[
+x_t[\tau]=a_t\,s_{r_t}(\tau-\delta_t)+b_t+\epsilon_{t,\tau},
+\]
+con amplitud, desplazamiento, offset y ruido independientes por ejemplo. Los
+mismos bancos de ventanas actuales y futuras se reutilizan en tres condiciones;
+sólo cambia el pairing temporal.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lXll@{}}
+\toprule
+\textbf{Condición} & \textbf{Pairing} & \textbf{Acción} & \textbf{Espectro activo}\\
+\midrule
+Estática & $r_{t+1}=r_t$ & conserva fase & $\{1,1,1\}$\\
+Cíclica & $r_{t+1}=r_t+1\pmod 4$ & rota fases & $\{-1,i,-i\}$\\
+Independiente & 16 pares balanceados & media cero & $\{0,0,0\}$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Por seed y condición usamos 1024 pares de train y 256 de validation, ventanas
+$1\times128$ y marginales uniformes. Se repiten 10 seeds emparejadas. Así, una
+diferencia entre predictores sólo puede atribuirse a la transición temporal.
+
+\section{Arquitectura}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=7mm and 8mm,
+  box/.style={draw=navy,rounded corners,fill=softgray,align=center,
+              minimum height=10mm,text width=33mm,font=\small},
+  latent/.style={draw=blue,rounded corners,fill=cyan,align=center,
+                 minimum height=9mm,text width=20mm,font=\small},
+  loss/.style={draw=green,rounded corners,fill=green!10,align=center,
+               minimum height=9mm,text width=24mm,font=\small},
+  arrow/.style={-{Latex[length=2mm]},thick,draw=navy}
+]
+\node[box] (xt) {ventana actual\\$x_t\in\mathbb{R}^{1\times128}$};
+\node[box,right=of xt] (online) {encoder online\\Conv $1\to16$, $k=7$, $s=2$\\Conv $16\to32$, $k=5$, $s=2$\\Flatten $32\times32$\\Linear $1024\to3$};
+\node[latent,right=of online] (zt) {$z_t\in\mathbb{R}^3$};
+\node[box,right=of zt] (pred) {predictor lineal\\$M\in\mathbb{R}^{3\times3}$\\sin bias};
+\node[latent,right=of pred] (zhat) {$\widehat z_{t+1}$};
+
+\node[box,below=22mm of xt] (xnext) {ventana futura\\$x_{t+1}$};
+\node[box,right=of xnext] (target) {encoder target\\misma CNN\\stop-gradient};
+\node[latent,right=of target] (zplus) {$z^+_{t+1}$};
+\node[loss,right=22mm of zplus] (mse) {MSE predictiva};
+
+\draw[arrow] (xt)--(online);
+\draw[arrow] (online)--(zt);
+\draw[arrow] (zt)--(pred);
+\draw[arrow] (pred)--(zhat);
+\draw[arrow] (xnext)--(target);
+\draw[arrow] (target)--(zplus);
+\draw[arrow] (zhat)--(mse);
+\draw[arrow] (zplus)--(mse);
+\draw[arrow,dashed] (online.south) -- node[left=2mm,font=\scriptsize,align=center]{EMA\\$0.90$} (target.north);
+\end{tikzpicture}
+}
+\end{center}
+
+El encoder online usa AdamW con learning rate $10^{-3}$; el predictor usa
+$4\times10^{-3}$. El target se actualiza por EMA con momentum 0.90. El encoder
+se congela después de la época 3 y $M$ continúa hasta la época 60. La loss
+combina predicción y regularización anti-colapso de media, varianza y
+covarianza; esa loss no se usa para decidir si el operador fue identificado.
+
+\section{Evaluación}
+
+Para cada modelo ajustamos la base de fase $A$ y calculamos
+\[
+E_d(M,A)=\frac{\lVert MA-AK_d\rVert_F}{\lVert A\rVert_F},
+\qquad
+d\in\{\text{estática,cíclica,independiente}\}.
+\]
+La dinámica predicha minimiza $E_d$. Repetimos la clasificación usando los
+eigenvalues de $M$ restringido al span activo. Una seed sólo cuenta cuando ese
+span tiene rango 3.
+
+El criterio predeclarado fue al menos 8/10 seeds correctas por condición. Bajo
+elección aleatoria entre tres operadores,
+$P(X\geq8\mid n=10,p=1/3)\approx0.0034$.
+
+\section{Resultado principal}
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Dinámica} & \textbf{Acción} & \textbf{Espectro} & \textbf{Error} & \textbf{Margen}\\
+\midrule
+Estática & 10/10 & 10/10 & 0.142 & 0.806\\
+Cíclica & 10/10 & 10/10 & 0.068 & 0.877\\
+Independiente & 10/10 & 10/10 & 0.015 & 0.981\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las 30 corridas tienen rango activo 3 y probe lineal de fase del 100\%.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/three_dynamics_operator_identification.png}
+\caption{Error mediano contra cada operador candidato. Las filas son las
+dinámicas verdaderas y las columnas los candidatos. La diagonal oscura es el
+mínimo en acción y espectro para las tres condiciones.}
+\end{figure}
+
+La figura descarta una explicación puramente visual. Los marginales son los
+mismos, pero $M$ cambia con el pairing. Los errores fuera de la diagonal quedan
+aproximadamente entre 0.85 y 1.58, lejos de los candidatos correctos.
+
+\section{Consistencia multi-step}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{figures/three_dynamics_rollout.png}
+\caption{Error $\lVert M^hA-AK^h\rVert_F/\lVert A\rVert_F$ frente al horizonte.}
+\end{figure}
+
+La condición independiente converge casi a cero desde $h=2$. En estática el
+error crece de 0.142 a aproximadamente 0.305 en $h=8$; en cíclica crece de
+0.068 a aproximadamente 0.377. El operador se identifica claramente a un paso,
+pero los pequeños errores se acumulan a horizontes largos.
+
+\section{Conclusión y límites}
+
+El experimento apoya que un JEPA puede aprender una restricción Koopman no
+trivial en un sistema sintético controlado. No demuestra recuperación general
+del operador Koopman.
+
+\begin{itemize}
+  \item Sólo hay cuatro estados y la dimensión verdadera del latent es conocida.
+  \item El control conjunto usa validation, no una nueva partición ciega.
+  \item El encoder se congela temprano para estabilizar la optimización.
+  \item Los rollouts estático y cíclico acumulan error.
+  \item Faltan observación parcial, ruido fuera de distribución y eigenvalues
+        con módulo menor que uno.
+\end{itemize}
+
+El próximo paso es congelar el control completo y repetirlo sobre nuevas
+realizaciones ciegas. Luego corresponde estabilizar $M^h$ sin introducir los
+eigenvalues verdaderos en la loss.
+
+\section*{Reproducibilidad}
+
+El notebook principal es
+\texttt{notebooks/stage3\_three\_dynamics\_control.ipynb}; el protocolo
+predeclarado está en
+\texttt{docs/STAGE3\_THREE\_DYNAMICS\_PROTOCOL.md}. El repositorio incluye 178
+tests automáticos para datos, álgebra, entrenamiento y outputs de notebooks.
+
+\end{document}
