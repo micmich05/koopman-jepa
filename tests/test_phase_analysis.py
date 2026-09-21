@@ -6,7 +6,10 @@ from koopman_jepa.koopman import (
     restrict_operator,
     sample_span_basis,
 )
-from koopman_jepa.phase_analysis import evaluate_phase_representation
+from koopman_jepa.phase_analysis import (
+    evaluate_phase_operator_diagnostics,
+    evaluate_phase_representation,
+)
 
 
 def test_oracle_cycle_has_perfect_phase_and_koopman_metrics() -> None:
@@ -77,4 +80,45 @@ def test_phase_representation_rejects_misaligned_inputs() -> None:
             np.eye(3),
             dynamics="static",
             seed=0,
+        )
+
+
+def test_oracle_operator_diagnostic_separates_consistent_coordinates() -> None:
+    current_phases = np.tile(np.arange(4), 8)
+    future_phases = (current_phases + 1) % 4
+    basis = sample_span_basis(centered_phase_indicators(current_phases))
+    current = centered_phase_indicators(current_phases) @ basis
+    future = centered_phase_indicators(future_phases) @ basis
+    predictor = restrict_operator(expected_phase_operator("cyclic"), basis)
+
+    metrics = evaluate_phase_operator_diagnostics(
+        current,
+        future,
+        future,
+        current_phases,
+        future_phases,
+        predictor,
+        dynamics="cyclic",
+    )
+
+    assert metrics["online_encoder_phase_basis_error"] < 1e-12
+    assert metrics["online_target_phase_basis_error"] < 1e-12
+    assert metrics["trained_online_endomorphism_error"] < 1e-12
+    assert metrics["trained_cross_encoder_error"] < 1e-12
+    assert metrics["predictor_vs_posthoc_online_error"] < 1e-12
+    assert metrics["posthoc_online_spectral_max_error"] < 1e-12
+
+
+def test_operator_diagnostic_rejects_misaligned_embeddings() -> None:
+    phases = np.tile(np.arange(4), 2)
+    embeddings = np.ones((8, 3))
+    with np.testing.assert_raises_regex(ValueError, "must align"):
+        evaluate_phase_operator_diagnostics(
+            embeddings,
+            embeddings[:-1],
+            embeddings,
+            phases,
+            phases,
+            np.eye(3),
+            dynamics="static",
         )

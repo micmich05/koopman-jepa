@@ -296,3 +296,33 @@ def collect_embeddings(
         np.concatenate(target_embeddings, axis=0),
         np.concatenate(labels, axis=0),
     )
+
+
+@torch.no_grad()
+def collect_paired_embeddings(
+    model: TemporalJEPA,
+    dataset: TensorDataset,
+    batch_size: int,
+    device: torch.device,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Encode current/future windows online and future windows with the EMA target."""
+
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    current_online: list[np.ndarray] = []
+    future_online: list[np.ndarray] = []
+    future_target: list[np.ndarray] = []
+    labels: list[np.ndarray] = []
+    model.eval()
+    for current, future, batch_labels in loader:
+        current = current.to(device)
+        future = future.to(device)
+        current_online.append(model.online_encoder(current).cpu().numpy())
+        future_online.append(model.online_encoder(future).cpu().numpy())
+        future_target.append(model.target_encoder(future).cpu().numpy())
+        labels.append(batch_labels.numpy())
+    return (
+        np.concatenate(current_online, axis=0),
+        np.concatenate(future_online, axis=0),
+        np.concatenate(future_target, axis=0),
+        np.concatenate(labels, axis=0),
+    )

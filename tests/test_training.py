@@ -9,6 +9,7 @@ from koopman_jepa.data import make_phase0_datasets
 from koopman_jepa.model import TemporalJEPA
 from koopman_jepa.training import (
     collect_embeddings,
+    collect_paired_embeddings,
     evaluate_model_loss,
     train_model,
     train_model_with_validation_checkpoint,
@@ -71,6 +72,19 @@ def test_collect_embeddings_encodes_the_future_target_window() -> None:
     assert (online == 0.0).all()
     assert (target_embeddings == 3.0).all()
     assert (collected_labels == labels.numpy()).all()
+
+    current_online, future_online, future_target, paired_labels = (
+        collect_paired_embeddings(
+            _EvaluationModel(),
+            dataset,
+            batch_size=2,
+            device=torch.device("cpu"),
+        )
+    )
+    assert (current_online == 0.0).all()
+    assert (future_online == 3.0).all()
+    assert (future_target == 3.0).all()
+    assert (paired_labels == labels.numpy()).all()
 
 
 def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
