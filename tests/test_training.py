@@ -11,6 +11,7 @@ from koopman_jepa.training import (
     collect_embeddings,
     collect_paired_embeddings,
     evaluate_model_loss,
+    make_optimizer,
     train_model,
     train_model_with_validation_checkpoint,
 )
@@ -26,6 +27,26 @@ class _EvaluationModel(nn.Module):
         super().__init__()
         self.online_encoder = _MeanEncoder()
         self.target_encoder = _MeanEncoder()
+
+
+def test_optimizer_can_accelerate_only_the_predictor() -> None:
+    model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
+    config = ExperimentConfig(
+        train=TrainConfig(
+            learning_rate=1e-3,
+            predictor_learning_rate_multiplier=4.0,
+        )
+    )
+
+    optimizer = make_optimizer(model, config)
+
+    assert [group["lr"] for group in optimizer.param_groups] == [1e-3, 4e-3]
+    assert {
+        id(parameter) for parameter in optimizer.param_groups[0]["params"]
+    } == {id(parameter) for parameter in model.online_encoder.parameters()}
+    assert {
+        id(parameter) for parameter in optimizer.param_groups[1]["params"]
+    } == {id(parameter) for parameter in model.predictor.parameters()}
 
 
 def test_one_training_epoch_updates_the_predictor() -> None:

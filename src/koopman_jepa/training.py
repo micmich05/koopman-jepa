@@ -178,6 +178,31 @@ def _run_epoch(
     )
 
 
+def make_optimizer(
+    model: TemporalJEPA,
+    config: ExperimentConfig,
+) -> torch.optim.AdamW:
+    """Build AdamW with an explicit time-scale control for the predictor."""
+
+    base_learning_rate = config.train.learning_rate
+    return torch.optim.AdamW(
+        [
+            {
+                "params": model.online_encoder.parameters(),
+                "lr": base_learning_rate,
+            },
+            {
+                "params": model.predictor.parameters(),
+                "lr": (
+                    base_learning_rate
+                    * config.train.predictor_learning_rate_multiplier
+                ),
+            },
+        ],
+        weight_decay=config.train.weight_decay,
+    )
+
+
 def _fit_model(
     model: TemporalJEPA,
     train_dataset: TensorDataset,
@@ -201,11 +226,7 @@ def _fit_model(
         seed=config.train.seed,
         num_workers=config.train.num_workers,
     )
-    optimizer = torch.optim.AdamW(
-        list(model.online_encoder.parameters()) + list(model.predictor.parameters()),
-        lr=config.train.learning_rate,
-        weight_decay=config.train.weight_decay,
-    )
+    optimizer = make_optimizer(model, config)
 
     history: list[dict[str, float]] = []
     best_epoch = 0
