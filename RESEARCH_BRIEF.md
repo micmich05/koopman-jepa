@@ -516,8 +516,19 @@ El orden acordado propuesto es:
 
 La Etapa 0 quedó cerrada como reproducción mecanística parcial, la Etapa 1
 validó las convenciones algebraicas y las Etapas 2A–2B validaron el oracle y el
-generador compartido. El primer protocolo neuronal preservó el subespacio de
-fase pero falló el gate del predictor. El siguiente trabajo autorizado es una
-instrumentación del predictor seguida por una sensibilidad de un solo factor
-sobre su optimización; no se ampliará a tres dinámicas ni se consultará test
-hasta resolver o caracterizar este desacople.
+generador compartido. La Etapa 3 mostró que un entrenamiento conjunto estándar
+preserva el subespacio de fase pero no hace que el predictor sea un
+endomorfismo Koopman. La traza temporal separó tres problemas: lag del target,
+velocidad insuficiente de `M` e inestabilidad de escala del encoder.
+
+El primer `PASS` neuronal cíclico de desarrollo usa EMA `0.90`, learning rate
+`4×` para `M`, freeze del encoder después de la época 3 y horizonte fijo de 60
+épocas. En una sola seed obtiene ratio validation/baseline `0.236`, rango
+efectivo `2.931`, probe de fase `100%`, error de alineación `0.152`, error de
+entrelazamiento `0.078` y error espectral máximo `0.079`. La selección no usa
+fase, espectro ni test: conserva la última época predeclarada.
+
+Este `PASS` demuestra viabilidad de mecanismo, no robustez. El próximo
+protocolo debe congelar exactamente esta receta y evaluarla sobre seeds nuevas
+de desarrollo, reportando tasa de éxito y dispersión. No se ampliará a las
+tres dinámicas ni se construirá test hasta comprobar estabilidad multi-seed.

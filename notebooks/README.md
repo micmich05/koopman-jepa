@@ -28,6 +28,16 @@ compara directamente protocolos distintos.
    separación entre predictor entrenado y operadores post-hoc online/EMA.
 10. [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb):
     sensibilidad de un solo factor con target EMA más rápido.
+11. [`stage3_cyclic_predictor_trace.ipynb`](stage3_cyclic_predictor_trace.ipynb):
+    trayectoria del predictor y descarte del checkpoint como explicación inicial.
+12. [`stage3_cyclic_predictor_fast_smoke.ipynb`](stage3_cyclic_predictor_fast_smoke.ipynb):
+    predictor `4×` y diagnóstico del desacople con validation loss.
+13. [`stage3_cyclic_predictor_fast_final_smoke.ipynb`](stage3_cyclic_predictor_fast_final_smoke.ipynb):
+    checkpoint final y localización de la inestabilidad de escala.
+14. [`stage3_cyclic_predictor_freeze_smoke.ipynb`](stage3_cyclic_predictor_freeze_smoke.ipynb):
+    optimización alternada con encoder congelado tras época 3.
+15. [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb):
+    horizonte de 60 épocas y primer PASS neuronal cíclico.
 
 ## Registro completo
 
@@ -71,6 +81,11 @@ receta u objetivo autosupervisado no publicado, no en ausencia de señal.
 | [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb) | FAIL | Aprende fase y rango 3, pero falla entrelazamiento (`1.278`) y espectro del predictor (error máximo `1.074`). |
 | [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb) | Diagnóstico | El post-hoc online recupera el espectro (error máximo `0.037`); el target EMA usa una base rezagada (`0.812`). |
 | [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb) | FAIL | EMA `0.90` reduce el desacople de base a `0.182`, pero el predictor conserva error espectral `1.059`; el post-hoc online sigue correcto (`0.045`). |
+| [`stage3_cyclic_predictor_trace.ipynb`](stage3_cyclic_predictor_trace.ipynb) | Diagnóstico | Con `M` a `1×`, ninguna época cruza el gate espectral; el mejor error es `1.049` frente a `0.037` post-hoc. |
+| [`stage3_cyclic_predictor_fast_smoke.ipynb`](stage3_cyclic_predictor_fast_smoke.ipynb) | FAIL formal | `M` a `4×` llega a error espectral/endomorfismo `0.045` en época 30, pero validation total selecciona época 3. |
+| [`stage3_cyclic_predictor_fast_final_smoke.ipynb`](stage3_cyclic_predictor_fast_final_smoke.ipynb) | FAIL | El checkpoint final recupera dinámica (`0.045`) pero la covariance loss de validation explota a `18.990`. |
+| [`stage3_cyclic_predictor_freeze_smoke.ipynb`](stage3_cyclic_predictor_freeze_smoke.ipynb) | FAIL estrecho | Congelar el encoder estabiliza loss, escala y rango; sólo falla espectro (`0.366` frente a `0.35`). |
+| [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb) | PASS desarrollo | A 60 épocas pasa todos los gates: validation ratio `0.236`, entrelazamiento `0.078` y error espectral `0.079`. |
 
 ## Convenciones
 

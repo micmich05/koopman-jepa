@@ -64,6 +64,35 @@ permanece correcto (`0.045`). EMA era parte del problema, pero no basta; el
 siguiente diagnóstico instrumentará la optimización del predictor antes de
 cambiar su learning rate.
 
+La traza por época está en
+[`stage3_cyclic_predictor_trace.ipynb`](notebooks/stage3_cyclic_predictor_trace.ipynb).
+Con predictor `1×`, `M` nunca cruza el gate espectral: su mejor error es
+`1.049`, mientras el operador post-hoc llega a `0.037`. Con learning rate
+`4×` sólo para `M`, el notebook
+[`stage3_cyclic_predictor_fast_smoke.ipynb`](notebooks/stage3_cyclic_predictor_fast_smoke.ipynb)
+muestra que el predictor sí aprende al final (error espectral y de
+endomorfismo `0.045`), pero mínima validation loss restaura la época 3, donde
+todavía falla. Ningún componente individual de la loss selecciona el estado
+dinámicamente correcto.
+
+Conservar directamente la época final recupera la dinámica, pero el control
+[`stage3_cyclic_predictor_fast_final_smoke.ipynb`](notebooks/stage3_cyclic_predictor_fast_final_smoke.ipynb)
+dio `FAIL` porque la representación siguió creciendo: la covariance loss de
+validation llegó a `18.990` y el ratio total a `4.592`. La optimización
+alternada corrige esa carrera de escala. Congelar el encoder tras la época 3
+mantiene escala `1.033`, rango `2.931` y probe `100%`; a 30 épocas queda un
+`FAIL` estrecho sólo por espectro (`0.366` frente a `0.35`) en
+[`stage3_cyclic_predictor_freeze_smoke.ipynb`](notebooks/stage3_cyclic_predictor_freeze_smoke.ipynb).
+
+El horizonte extendido, que cambia únicamente `30→60` épocas, produce el
+primer `PASS` neuronal cíclico en
+[`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](notebooks/stage3_cyclic_predictor_freeze_long_smoke.ipynb):
+ratio validation/baseline `0.236`, rango efectivo `2.931`, probe `100%`, error
+de alineación `0.152`, entrelazamiento `0.078` y error espectral `0.079`. Es
+evidencia de mecanismo sobre una sola seed de desarrollo, sin consulta de
+test. El siguiente paso es congelar este protocolo y medir robustez en seeds
+nuevas antes de cualquier evaluación held-out.
+
 El protocolo científico está documentado en
 [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md). La implementación cubre la **Fase 0**,
 una replicación mecanística reducida del caso de invariantes de Koopman
