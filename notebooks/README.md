@@ -17,6 +17,14 @@ Los dos últimos notebooks contienen las figuras y las conclusiones principales.
 Ambos son experimentos de desarrollo sobre validation; todavía no constituyen
 una evaluación ciega de todo el protocolo.
 
+## Comparación causal en preparación
+
+[`koopman_decay_baselines_validation.ipynb`](koopman_decay_baselines_validation.ipynb)
+está preparado, pero todavía no ejecutado. Compara DMD crudo, PCA+DMD, CNN
+aleatoria, techo supervisado y JEPA sobre una sola seed de validation. Su única
+función es validar el pipeline y las visualizaciones manteniendo cerrado el
+held-out de diez seeds.
+
 ## Material secundario
 
 - [`stage3_cyclic_heldout.ipynb`](stage3_cyclic_heldout.ipynb) confirma sobre
