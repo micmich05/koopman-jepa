@@ -1,0 +1,27 @@
+import json
+from pathlib import Path
+
+
+def test_stage1_koopman_oracle_notebook_is_prepared() -> None:
+    path = (
+        Path(__file__).parents[1]
+        / "notebooks"
+        / "stage1_four_phase_koopman_oracle.ipynb"
+    )
+    with path.open(encoding="utf-8") as handle:
+        notebook = json.load(handle)
+    code_cells = [
+        cell for cell in notebook["cells"] if cell["cell_type"] == "code"
+    ]
+    source = "\n".join("".join(cell["source"]) for cell in code_cells)
+
+    assert "centered_phase_indicators" in source
+    assert "fit_linear_operator" in source
+    assert "restrict_operator" in source
+    assert "left_eigendecomposition" in source
+    assert "linear_rollout" in source
+    assert "expected_spectrum = np.array([-1.0, 1.0j, -1.0j]" in source
+    assert "TOLERANCE = 1e-10" in source
+    assert "max_eight_step_rollout_error" in source
+    assert all(cell["execution_count"] is None for cell in code_cells)
+    assert all(not cell["outputs"] for cell in code_cells)
