@@ -231,8 +231,46 @@ def test_decay_tensor_splits_are_reproducible_and_disjoint() -> None:
     assert set(splits.validation) == set(rhos)
     assert splits.train_seed == 64
     assert splits.validation_seed == 76
+    assert splits.heldout is None
+    assert splits.heldout_seed is None
     assert torch.equal(splits.train[0.5].tensors[0], replay.train[0.5].tensors[0])
     assert not torch.equal(
         splits.train[0.5].tensors[0],
         splits.validation[0.5].tensors[0],
     )
+
+
+def test_decay_tensor_splits_materialize_shared_heldout_only_when_requested() -> None:
+    rhos = (0.0, 0.25, 0.5, 0.75, 1.0)
+    config = PhaseWindowConfig(window_length=64)
+    splits = make_decay_phase_tensor_dataset_splits(
+        config,
+        rhos,
+        train_repeats_per_transition=4,
+        validation_repeats_per_transition=4,
+        heldout_repeats_per_transition=4,
+        seed=53,
+    )
+
+    assert splits.heldout is not None
+    assert splits.heldout_seed == 90
+    assert set(splits.heldout) == set(rhos)
+    heldout_current, heldout_future, heldout_labels = splits.heldout[0.5].tensors
+    assert heldout_current.shape == heldout_future.shape == (64, 1, 64)
+    assert heldout_labels.shape == (64, 2)
+    assert not torch.equal(heldout_current, splits.train[0.5].tensors[0])
+    assert not torch.equal(heldout_current, splits.validation[0.5].tensors[0])
+    for rho in rhos:
+        assert torch.equal(heldout_current, splits.heldout[rho].tensors[0])
+
+
+def test_decay_tensor_splits_reject_non_positive_heldout_size() -> None:
+    with np.testing.assert_raises_regex(ValueError, "heldout_repeats_per_transition"):
+        make_decay_phase_tensor_dataset_splits(
+            PhaseWindowConfig(),
+            (0.0, 1.0),
+            train_repeats_per_transition=4,
+            validation_repeats_per_transition=4,
+            heldout_repeats_per_transition=0,
+            seed=1,
+        )

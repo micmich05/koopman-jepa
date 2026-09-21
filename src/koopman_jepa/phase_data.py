@@ -87,6 +87,8 @@ class DecayPhaseTensorDatasetSplits:
     validation: dict[float, TensorDataset]
     train_seed: int
     validation_seed: int
+    heldout: dict[float, TensorDataset] | None = None
+    heldout_seed: int | None = None
 
 
 def validate_phase_window_config(config: PhaseWindowConfig) -> None:
@@ -347,15 +349,19 @@ def make_decay_phase_tensor_dataset_splits(
     train_repeats_per_transition: int,
     validation_repeats_per_transition: int,
     seed: int,
+    heldout_repeats_per_transition: int | None = None,
 ) -> DecayPhaseTensorDatasetSplits:
-    """Create deterministic train/validation splits for the decay family."""
+    """Create decay splits, materializing held-out emissions only on request."""
 
     if train_repeats_per_transition < 1:
         raise ValueError("train_repeats_per_transition must be positive")
     if validation_repeats_per_transition < 1:
         raise ValueError("validation_repeats_per_transition must be positive")
+    if heldout_repeats_per_transition is not None and heldout_repeats_per_transition < 1:
+        raise ValueError("heldout_repeats_per_transition must be positive")
     train_seed = seed + 11
     validation_seed = seed + 23
+    heldout_seed = seed + 37 if heldout_repeats_per_transition is not None else None
     train_bundle = make_shared_decay_phase_observation_bundle(
         replace(config, repeats_per_transition=train_repeats_per_transition),
         rhos,
@@ -365,6 +371,15 @@ def make_decay_phase_tensor_dataset_splits(
         replace(config, repeats_per_transition=validation_repeats_per_transition),
         rhos,
         seed=validation_seed,
+    )
+    heldout_bundle = (
+        make_shared_decay_phase_observation_bundle(
+            replace(config, repeats_per_transition=heldout_repeats_per_transition),
+            rhos,
+            seed=heldout_seed,
+        )
+        if heldout_repeats_per_transition is not None and heldout_seed is not None
+        else None
     )
     return DecayPhaseTensorDatasetSplits(
         train={
@@ -377,6 +392,15 @@ def make_decay_phase_tensor_dataset_splits(
         },
         train_seed=train_seed,
         validation_seed=validation_seed,
+        heldout=(
+            {
+                rho: phase_condition_tensor_dataset(condition)
+                for rho, condition in heldout_bundle.conditions.items()
+            }
+            if heldout_bundle is not None
+            else None
+        ),
+        heldout_seed=heldout_seed,
     )
 
 
