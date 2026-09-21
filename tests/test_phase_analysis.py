@@ -4,12 +4,14 @@ from koopman_jepa.koopman import (
     balanced_decay_phase_transitions,
     balanced_phase_transitions,
     centered_phase_indicators,
+    decay_phase_operator,
     expected_phase_operator,
     fit_linear_operator,
     restrict_operator,
     sample_span_basis,
 )
 from koopman_jepa.phase_analysis import (
+    evaluate_continuous_decay_operator,
     evaluate_decay_operator_candidates,
     evaluate_phase_operator_candidates,
     evaluate_phase_operator_diagnostics,
@@ -208,3 +210,50 @@ def test_decay_candidate_comparison_identifies_every_oracle_rho() -> None:
         assert result["spectral_max_errors"][rho] < 1e-12
         assert np.isclose(result["mean_eigenvalue_modulus"], rho)
         assert max(result["rollout_errors"][rho].values()) < 1e-11
+
+
+def test_continuous_decay_evaluation_recovers_oracle_rho() -> None:
+    phases = np.tile(np.arange(4), 8)
+    indicator_table = centered_phase_indicators(np.arange(4), num_phases=4)
+    _, _, right_vectors = np.linalg.svd(indicator_table, full_matrices=False)
+    coordinates = right_vectors[:3].T
+    embeddings = centered_phase_indicators(phases, 4) @ coordinates
+    predictor = coordinates.T @ decay_phase_operator(0.75, 4) @ coordinates
+
+    result = evaluate_continuous_decay_operator(
+        embeddings,
+        phases,
+        predictor,
+        true_rho=0.75,
+    )
+
+    assert result["active_rank"] == 3
+    assert np.isclose(result["action_rho_estimate"], 0.75)
+    assert np.isclose(result["spectral_rho_estimate"], 0.75)
+    assert result["true_action_error"] < 1e-12
+    assert result["active_invariance_error"] < 1e-12
+    assert max(result["rollout_errors"].values()) < 1e-11
+
+
+def test_continuous_decay_evaluation_detects_active_span_leakage() -> None:
+    phases = np.tile(np.arange(4), 8)
+    indicator_table = centered_phase_indicators(np.arange(4), num_phases=4)
+    _, _, right_vectors = np.linalg.svd(indicator_table, full_matrices=False)
+    coordinates = right_vectors[:3].T
+    embeddings = np.column_stack(
+        [centered_phase_indicators(phases, 4) @ coordinates, np.zeros(len(phases))]
+    )
+    predictor = np.zeros((4, 4))
+    predictor[:3, :3] = coordinates.T @ decay_phase_operator(0.5, 4) @ coordinates
+    predictor[3, 0] = 0.25
+
+    result = evaluate_continuous_decay_operator(
+        embeddings,
+        phases,
+        predictor,
+        true_rho=0.5,
+    )
+
+    assert result["active_rank"] == 3
+    assert result["active_invariance_error"] > 0.0
+    assert result["true_action_error"] > 0.0

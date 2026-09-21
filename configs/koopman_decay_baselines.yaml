@@ -85,7 +85,7 @@ evaluation:
   paired_test: exact_one_sided_sign_flip_test_on_mean
   sign_flip_assignments: 1024
   active_rank_required_for_spectrum: 3
+  invalid_active_span_absolute_error: 1.0
   rollout_horizons: [1, 2, 4, 8]
   labels_used_only_for_final_metrics: true
   report_discrete_grid_identification_as_secondary: true
-

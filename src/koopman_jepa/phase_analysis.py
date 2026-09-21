@@ -404,6 +404,102 @@ def evaluate_decay_operator_candidates(
     }
 
 
+def evaluate_continuous_decay_operator(
+    embeddings: np.ndarray,
+    phases: np.ndarray,
+    predictor_matrix: np.ndarray,
+    true_rho: float,
+    rollout_horizons: Sequence[int] = (1, 2, 4, 8),
+    rank_tolerance: float = 1e-6,
+) -> dict[str, Any]:
+    """Evaluate a decay operator without discretizing its estimated strength."""
+
+    embeddings = np.asarray(embeddings, dtype=np.float64)
+    phases = np.asarray(phases, dtype=np.int64)
+    predictor_matrix = np.asarray(predictor_matrix, dtype=np.float64)
+    true_rho = float(true_rho)
+    horizons = tuple(int(horizon) for horizon in rollout_horizons)
+    if embeddings.ndim != 2 or embeddings.shape[0] == 0:
+        raise ValueError("embeddings must be a non-empty two-dimensional matrix")
+    if phases.shape != (embeddings.shape[0],):
+        raise ValueError("phases must align with embeddings")
+    if predictor_matrix.shape != (embeddings.shape[1], embeddings.shape[1]):
+        raise ValueError("predictor matrix must match the latent dimension")
+    if not np.isfinite(embeddings).all() or not np.isfinite(predictor_matrix).all():
+        raise ValueError("embeddings and predictor matrix must be finite")
+    if not np.isfinite(true_rho) or not 0.0 <= true_rho <= 1.0:
+        raise ValueError("true_rho must lie in [0, 1]")
+    if not horizons or any(horizon < 1 for horizon in horizons):
+        raise ValueError("rollout horizons must be positive")
+    if rank_tolerance <= 0.0:
+        raise ValueError("rank_tolerance must be positive")
+
+    num_phases = int(phases.max() + 1)
+    if not np.array_equal(np.unique(phases), np.arange(num_phases)):
+        raise ValueError("phases must cover every phase")
+    alignment, _ = _phase_alignment_columns(embeddings, phases, num_phases)
+    alignment_norm = max(np.linalg.norm(alignment), 1e-15)
+    left_vectors, singular_values, _ = np.linalg.svd(alignment, full_matrices=False)
+    if singular_values.size == 0 or singular_values[0] <= 1e-12:
+        active_rank = 0
+        basis = np.zeros((embeddings.shape[1], 0), dtype=np.float64)
+    else:
+        active_rank = int(np.sum(singular_values > rank_tolerance * singular_values[0]))
+        basis = left_vectors[:, :active_rank]
+
+    cyclic_operator = decay_phase_operator(1.0, num_phases)
+    cyclic_action = alignment @ cyclic_operator
+    estimated_action = predictor_matrix @ alignment
+    action_denominator = float(np.sum(np.square(cyclic_action)))
+    action_rho_estimate = (
+        float(np.sum(cyclic_action * estimated_action) / action_denominator)
+        if action_denominator > 1e-15
+        else None
+    )
+
+    expected_operator = decay_phase_operator(true_rho, num_phases)
+    true_action_error = float(
+        np.linalg.norm(estimated_action - alignment @ expected_operator) / alignment_norm
+    )
+    rollout_errors = {
+        horizon: float(
+            np.linalg.norm(
+                np.linalg.matrix_power(predictor_matrix, horizon) @ alignment
+                - alignment @ np.linalg.matrix_power(expected_operator, horizon)
+            )
+            / alignment_norm
+        )
+        for horizon in horizons
+    }
+
+    active_invariance_error: float | None = None
+    spectral_rho_estimate: float | None = None
+    active_eigenvalues = np.array([], dtype=np.complex128)
+    if active_rank > 0:
+        residual = (
+            np.eye(embeddings.shape[1]) - basis @ basis.T
+        ) @ predictor_matrix @ basis
+        active_invariance_error = float(
+            np.linalg.norm(residual) / max(np.linalg.norm(predictor_matrix @ basis), 1e-15)
+        )
+    if active_rank == num_phases - 1:
+        reduced_predictor = basis.T @ predictor_matrix @ basis
+        active_eigenvalues = np.linalg.eigvals(reduced_predictor)
+        spectral_rho_estimate = float(np.mean(np.abs(active_eigenvalues)))
+
+    return {
+        "true_rho": true_rho,
+        "active_rank": active_rank,
+        "alignment_singular_values": singular_values.tolist(),
+        "action_rho_estimate": action_rho_estimate,
+        "spectral_rho_estimate": spectral_rho_estimate,
+        "true_action_error": true_action_error,
+        "active_invariance_error": active_invariance_error,
+        "rollout_errors": rollout_errors,
+        "active_eigenvalues": _complex_list(active_eigenvalues),
+    }
+
+
 def evaluate_phase_operator_diagnostics(
     current_online: np.ndarray,
     future_online: np.ndarray,

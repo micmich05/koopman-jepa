@@ -19,6 +19,7 @@ def test_decay_baseline_protocol_is_frozen_before_implementation() -> None:
     assert config["primary_baseline"] == "random_cnn3_dmd"
     assert config["target_method"] == "jepa_learned_predictor"
     assert config["evaluation"]["sign_flip_assignments"] == 2 ** len(config["seeds"])
+    assert config["evaluation"]["invalid_active_span_absolute_error"] == 1.0
 
 
 def test_baseline_operator_selection_cannot_use_phase_labels() -> None:
@@ -40,4 +41,3 @@ def test_protocol_declares_causal_interpretation_without_a_new_accuracy_gate() -
     assert "No se presupone que JEPA deba ganar" in protocol
     assert "No se reemplazarán" in protocol
     assert "Koopman autoencoder queda fuera" in protocol
-

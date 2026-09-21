@@ -93,6 +93,81 @@ def linear_probe_accuracy(
     return float(probe.score(test_embeddings, test_labels))
 
 
+def calibration_statistics(
+    true_values: np.ndarray,
+    estimated_values: np.ndarray,
+    invalid_absolute_error: float = 1.0,
+) -> dict[str, Any]:
+    """Summarize a continuous calibration curve without dropping invalid runs."""
+
+    truth = np.asarray(true_values, dtype=np.float64)
+    estimates = np.asarray(estimated_values, dtype=np.float64)
+    if truth.ndim != 1 or estimates.ndim != 1 or truth.shape != estimates.shape:
+        raise ValueError("true and estimated values must be aligned one-dimensional arrays")
+    if truth.size < 2 or not np.isfinite(truth).all():
+        raise ValueError("true values must contain at least two finite observations")
+    if not np.isfinite(invalid_absolute_error) or invalid_absolute_error < 0.0:
+        raise ValueError("invalid_absolute_error must be finite and non-negative")
+
+    valid = np.isfinite(estimates)
+    absolute_errors = np.full(truth.shape, invalid_absolute_error, dtype=np.float64)
+    absolute_errors[valid] = np.abs(estimates[valid] - truth[valid])
+    slope: float | None = None
+    intercept: float | None = None
+    r_squared: float | None = None
+    if valid.sum() >= 2 and np.unique(truth[valid]).size >= 2:
+        slope, intercept = (
+            float(value) for value in np.polyfit(truth[valid], estimates[valid], 1)
+        )
+        fitted = slope * truth[valid] + intercept
+        total_variation = float(np.sum(np.square(estimates[valid] - estimates[valid].mean())))
+        if total_variation > 1e-15:
+            r_squared = float(
+                1.0
+                - np.sum(np.square(estimates[valid] - fitted)) / total_variation
+            )
+
+    return {
+        "mae": float(absolute_errors.mean()),
+        "absolute_errors": absolute_errors.tolist(),
+        "valid_count": int(valid.sum()),
+        "invalid_count": int((~valid).sum()),
+        "slope": slope,
+        "intercept": intercept,
+        "r_squared": r_squared,
+    }
+
+
+def exact_one_sided_sign_flip_test(differences: np.ndarray) -> dict[str, float | int]:
+    """Test whether paired differences have positive mean by exact sign flips."""
+
+    values = np.asarray(differences, dtype=np.float64)
+    if values.ndim != 1 or values.size == 0:
+        raise ValueError("differences must be a non-empty one-dimensional array")
+    if values.size > 16:
+        raise ValueError("exact sign-flip enumeration is limited to 16 pairs")
+    if not np.isfinite(values).all():
+        raise ValueError("differences must be finite")
+
+    observed_mean = float(values.mean())
+    assignment_count = 2 ** values.size
+    at_least_observed = 0
+    tolerance = 1e-15 * max(1.0, abs(observed_mean))
+    for assignment in range(assignment_count):
+        signs = np.array(
+            [1.0 if assignment & (1 << index) else -1.0 for index in range(values.size)]
+        )
+        permuted_mean = float(np.mean(signs * values))
+        at_least_observed += permuted_mean >= observed_mean - tolerance
+
+    return {
+        "pair_count": int(values.size),
+        "assignment_count": assignment_count,
+        "observed_mean_difference": observed_mean,
+        "p_value": at_least_observed / assignment_count,
+    }
+
+
 def clustering_scores(
     embeddings: np.ndarray,
     labels: np.ndarray,

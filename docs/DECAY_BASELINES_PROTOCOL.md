@@ -115,6 +115,10 @@ permutación exacto unilateral por cambio de signo sobre la media (`2^10`
 asignaciones). Una diferencia positiva favorece a JEPA. No se reemplazarán
 estas cantidades por un nuevo gate de aciertos.
 
+Si el span activo de un método no alcanza rango 3 en algún valor de \(\rho\),
+la estimación espectral queda indefinida y recibe un error absoluto predeclarado
+de `1.0` en el MAE. No se elimina esa condición ni esa seed del contraste.
+
 ## Mediciones secundarias
 
 Para cada método, seed y \(\rho\) también se reportan:
@@ -148,4 +152,3 @@ La loss de entrenamiento no decide si se recuperó Koopman.
 El Koopman autoencoder queda fuera de este bloque inicial porque introduce un
 decoder, una loss y decisiones de capacidad nuevas. Se añadirá en un protocolo
 separado sólo después de resolver estos falsificadores más directos.
-

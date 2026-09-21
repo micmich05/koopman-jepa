@@ -1,8 +1,10 @@
 import numpy as np
 
 from koopman_jepa.analysis import (
+    calibration_statistics,
     clustering_diagnostics,
     evaluate_phase0,
+    exact_one_sided_sign_flip_test,
     linear_probe_accuracy,
     predictor_subspace_statistics,
 )
@@ -96,3 +98,25 @@ def test_clustering_diagnostics_rejects_incomplete_labels() -> None:
             num_regimes=2,
             seed=0,
         )
+
+
+def test_calibration_statistics_penalizes_invalid_estimate_without_dropping_it() -> None:
+    metrics = calibration_statistics(
+        np.array([0.0, 0.5, 1.0]),
+        np.array([0.0, np.nan, 0.9]),
+        invalid_absolute_error=1.0,
+    )
+
+    assert np.isclose(metrics["mae"], (0.0 + 1.0 + 0.1) / 3.0)
+    assert metrics["valid_count"] == 2
+    assert metrics["invalid_count"] == 1
+    assert np.isclose(metrics["slope"], 0.9)
+
+
+def test_exact_sign_flip_test_enumerates_every_assignment() -> None:
+    result = exact_one_sided_sign_flip_test(np.array([1.0, 2.0, 3.0]))
+
+    assert result["pair_count"] == 3
+    assert result["assignment_count"] == 8
+    assert result["observed_mean_difference"] == 2.0
+    assert result["p_value"] == 1.0 / 8.0
