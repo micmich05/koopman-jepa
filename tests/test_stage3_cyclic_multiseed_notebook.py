@@ -24,7 +24,7 @@ def test_multiseed_config_reuses_the_passing_recipe() -> None:
     }
 
 
-def test_stage3_cyclic_multiseed_notebook_is_prepared() -> None:
+def test_stage3_cyclic_multiseed_notebook_is_executed() -> None:
     path = (
         Path(__file__).parents[1]
         / "notebooks"
@@ -50,9 +50,30 @@ def test_stage3_cyclic_multiseed_notebook_is_prepared() -> None:
     assert "evaluate_phase_operator_diagnostics" in source
     assert "test_constructed" in source
     assert "assert multi_seed_gate_passed" in source
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(not cell["outputs"] for cell in code_cells)
+    assert all(isinstance(cell["execution_count"], int) for cell in code_cells)
+    assert all(
+        output.get("output_type") != "error"
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
 
     rendered = json.dumps(notebook, ensure_ascii=False)
+    rendered_output = "\n".join(
+        "".join(output.get("text", []))
+        + "".join(output.get("data", {}).get("text/markdown", []))
+        for cell in code_cells
+        for output in cell["outputs"]
+    )
     assert "10 seeds nuevas" in rendered
     assert "test no se construye" in rendered
+    assert '"successful_seeds": 8' in rendered_output
+    assert '"median_validation_loss_ratio": 0.301005565613913' in rendered_output
+    assert '"median_effective_rank": 2.810831580138041' in rendered_output
+    assert '"median_intertwining_error": 0.06822191509801676' in rendered_output
+    assert '"median_spectral_error": 0.06702866939299468' in rendered_output
+    assert '"worst_intertwining_error": 0.5116221835198809' in rendered_output
+    assert '"worst_spectral_error": 0.37886467516894656' in rendered_output
+    assert '"multi_seed_gate_passed": true' in rendered_output
+    assert "Gate multi-seed: **PASS**" in rendered_output
+    assert "seed 6: effective_rank, intertwining" in rendered_output
+    assert "seed 7: effective_rank, intertwining, spectrum" in rendered_output
