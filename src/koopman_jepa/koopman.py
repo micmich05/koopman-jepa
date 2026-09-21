@@ -1,9 +1,25 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+
+PhaseDynamics = Literal["static", "cyclic", "independent"]
+
+
+def _relative_or_absolute_error(
+    estimate: np.ndarray,
+    reference: np.ndarray,
+    zero_tolerance: float = 1e-12,
+) -> float:
+    """Use relative error unless the reference is mathematically zero."""
+
+    absolute_error = np.linalg.norm(estimate - reference)
+    reference_norm = np.linalg.norm(reference)
+    if reference_norm <= zero_tolerance:
+        return float(absolute_error)
+    return float(absolute_error / reference_norm)
 
 
 def centered_phase_indicators(
@@ -37,6 +53,74 @@ def cyclic_phase_operator(num_phases: int = 4) -> np.ndarray:
     for phase in range(num_phases):
         operator[(phase + 1) % num_phases, phase] = 1.0
     return operator
+
+
+def balanced_phase_transitions(
+    dynamics: PhaseDynamics,
+    repeats_per_transition: int = 16,
+    num_phases: int = 4,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build equally sized transition tables with uniform source/future marginals."""
+
+    if dynamics not in {"static", "cyclic", "independent"}:
+        raise ValueError(f"unknown phase dynamics: {dynamics}")
+    if repeats_per_transition < 1:
+        raise ValueError("repeats_per_transition must be positive")
+    if num_phases < 2:
+        raise ValueError("num_phases must be at least two")
+
+    if dynamics == "independent":
+        pairs = np.array(
+            [
+                (current, future)
+                for current in range(num_phases)
+                for future in range(num_phases)
+            ],
+            dtype=np.int64,
+        )
+        pairs = np.tile(pairs, (repeats_per_transition, 1))
+        return pairs[:, 0], pairs[:, 1]
+
+    repeats_per_phase = num_phases * repeats_per_transition
+    current = np.repeat(np.arange(num_phases), repeats_per_phase)
+    if dynamics == "static":
+        future = current.copy()
+    else:
+        future = (current + 1) % num_phases
+    return current, future
+
+
+def expected_phase_operator(
+    dynamics: PhaseDynamics,
+    num_phases: int = 4,
+) -> np.ndarray:
+    """Return the conditional-expectation operator for centered phase indicators."""
+
+    if dynamics == "static":
+        return np.eye(num_phases, dtype=np.float64)
+    if dynamics == "cyclic":
+        return cyclic_phase_operator(num_phases)
+    if dynamics == "independent":
+        return np.zeros((num_phases, num_phases), dtype=np.float64)
+    raise ValueError(f"unknown phase dynamics: {dynamics}")
+
+
+def expected_active_spectrum(
+    dynamics: PhaseDynamics,
+    num_phases: int = 4,
+) -> np.ndarray:
+    """Return the expected spectrum after removing the constant phase mode."""
+
+    if num_phases < 2:
+        raise ValueError("num_phases must be at least two")
+    if dynamics == "static":
+        return np.ones(num_phases - 1, dtype=np.complex128)
+    if dynamics == "cyclic":
+        indices = np.arange(1, num_phases)
+        return np.exp(2.0j * np.pi * indices / num_phases)
+    if dynamics == "independent":
+        return np.zeros(num_phases - 1, dtype=np.complex128)
+    raise ValueError(f"unknown phase dynamics: {dynamics}")
 
 
 def fit_linear_operator(
@@ -169,3 +253,78 @@ def linear_rollout(
     for _ in range(steps):
         states.append(operator @ states[-1])
     return np.stack(states)
+
+
+def evaluate_phase_dynamics_oracle(
+    dynamics: PhaseDynamics,
+    repeats_per_transition: int = 16,
+    num_phases: int = 4,
+) -> dict[str, Any]:
+    """Fit and evaluate an oracle operator for one balanced phase dynamics."""
+
+    current_phases, future_phases = balanced_phase_transitions(
+        dynamics,
+        repeats_per_transition,
+        num_phases,
+    )
+    current = centered_phase_indicators(current_phases, num_phases)
+    future = centered_phase_indicators(future_phases, num_phases)
+    fitted = fit_linear_operator(current, future)
+    expected = expected_phase_operator(dynamics, num_phases)
+    basis = sample_span_basis(current)
+    fitted_active = restrict_operator(fitted, basis)
+    expected_active = restrict_operator(expected, basis)
+    estimated_spectrum = np.linalg.eigvals(fitted_active)
+    expected_spectrum = expected_active_spectrum(dynamics, num_phases)
+    spectral_match = match_eigenvalues(estimated_spectrum, expected_spectrum)
+
+    sample_prediction_error = np.linalg.norm(current @ fitted.T - future) / max(
+        np.linalg.norm(future),
+        1e-15,
+    )
+    phase_features = centered_phase_indicators(np.arange(num_phases), num_phases)
+    empirical_conditional_means = np.stack(
+        [future[current_phases == phase].mean(axis=0) for phase in range(num_phases)]
+    )
+    fitted_conditional_means = phase_features @ fitted.T
+    conditional_mean_error = _relative_or_absolute_error(
+        fitted_conditional_means,
+        empirical_conditional_means,
+    )
+
+    projector = basis @ basis.T
+    invariance_numerator = np.linalg.norm(
+        (np.eye(num_phases) - projector) @ fitted @ basis
+    )
+    active_action = fitted @ basis
+    if np.linalg.norm(active_action) <= 1e-12:
+        active_invariance_error = float(invariance_numerator)
+    else:
+        active_invariance_error = float(
+            invariance_numerator / np.linalg.norm(active_action)
+        )
+    active_operator_error = _relative_or_absolute_error(
+        fitted_active,
+        expected_active,
+    )
+
+    return {
+        "dynamics": dynamics,
+        "sample_count": int(current.shape[0]),
+        "source_counts": np.bincount(current_phases, minlength=num_phases),
+        "future_counts": np.bincount(future_phases, minlength=num_phases),
+        "active_rank": int(basis.shape[1]),
+        "sample_prediction_error": float(sample_prediction_error),
+        "conditional_mean_error": conditional_mean_error,
+        "active_invariance_error": active_invariance_error,
+        "active_operator_error": active_operator_error,
+        "spectral_mean_absolute_error": spectral_match["mean_absolute_error"],
+        "spectral_max_absolute_error": spectral_match["max_absolute_error"],
+        "fitted_operator": fitted,
+        "expected_operator": expected,
+        "basis": basis,
+        "fitted_active_operator": fitted_active,
+        "expected_active_operator": expected_active,
+        "estimated_spectrum": estimated_spectrum,
+        "expected_spectrum": expected_spectrum,
+    }

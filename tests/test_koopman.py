@@ -1,8 +1,12 @@
 import numpy as np
 
 from koopman_jepa.koopman import (
+    balanced_phase_transitions,
     centered_phase_indicators,
     cyclic_phase_operator,
+    evaluate_phase_dynamics_oracle,
+    expected_active_spectrum,
+    expected_phase_operator,
     fit_linear_operator,
     left_eigendecomposition,
     linear_rollout,
@@ -79,3 +83,61 @@ def test_spectral_helpers_reject_invalid_shapes() -> None:
         restrict_operator(np.eye(2), np.ones((2, 1)))
     with np.testing.assert_raises_regex(ValueError, "non-negative"):
         linear_rollout(np.eye(2), np.zeros(2), steps=-1)
+
+
+def test_balanced_dynamics_have_identical_uniform_marginals() -> None:
+    transition_tables = {
+        dynamics: balanced_phase_transitions(dynamics, repeats_per_transition=3)
+        for dynamics in ("static", "cyclic", "independent")
+    }
+
+    for current, future in transition_tables.values():
+        assert current.shape == future.shape == (48,)
+        np.testing.assert_array_equal(np.bincount(current), np.repeat(12, 4))
+        np.testing.assert_array_equal(np.bincount(future), np.repeat(12, 4))
+
+
+def test_expected_phase_operators_have_distinct_active_spectra() -> None:
+    expected = {
+        "static": np.ones(3, dtype=np.complex128),
+        "cyclic": np.array([1.0j, -1.0, -1.0j]),
+        "independent": np.zeros(3, dtype=np.complex128),
+    }
+
+    for dynamics, spectrum in expected.items():
+        operator = expected_phase_operator(dynamics)
+        basis = sample_span_basis(centered_phase_indicators(np.arange(4)))
+        estimated = np.linalg.eigvals(restrict_operator(operator, basis))
+        matching = match_eigenvalues(estimated, expected_active_spectrum(dynamics))
+
+        assert matching["max_absolute_error"] < 1e-12
+        assert match_eigenvalues(estimated, spectrum)["max_absolute_error"] < 1e-12
+
+
+def test_oracles_recover_all_three_conditional_operators() -> None:
+    results = {
+        dynamics: evaluate_phase_dynamics_oracle(dynamics, repeats_per_transition=4)
+        for dynamics in ("static", "cyclic", "independent")
+    }
+
+    for result in results.values():
+        assert result["active_rank"] == 3
+        assert result["conditional_mean_error"] < 1e-12
+        assert result["active_invariance_error"] < 1e-12
+        assert result["active_operator_error"] < 1e-12
+        assert result["spectral_max_absolute_error"] < 1e-12
+        np.testing.assert_array_equal(result["source_counts"], np.repeat(16, 4))
+        np.testing.assert_array_equal(result["future_counts"], np.repeat(16, 4))
+
+    assert results["static"]["sample_prediction_error"] < 1e-12
+    assert results["cyclic"]["sample_prediction_error"] < 1e-12
+    assert np.isclose(results["independent"]["sample_prediction_error"], 1.0)
+
+
+def test_phase_dynamics_reject_invalid_configuration() -> None:
+    with np.testing.assert_raises_regex(ValueError, "unknown phase dynamics"):
+        balanced_phase_transitions("unknown")  # type: ignore[arg-type]
+    with np.testing.assert_raises_regex(ValueError, "positive"):
+        balanced_phase_transitions("static", repeats_per_transition=0)
+    with np.testing.assert_raises_regex(ValueError, "unknown phase dynamics"):
+        expected_phase_operator("unknown")  # type: ignore[arg-type]
