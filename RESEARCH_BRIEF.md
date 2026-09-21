@@ -1,46 +1,28 @@
 # Research brief: JEPA y dinámicas de Koopman no triviales
 
-Estado: sensibilidad EMA ejecutada (FAIL parcial); siguiente: diagnóstico del predictor
+Estado: evidencia neuronal positiva en desarrollo para tres operadores de fase
 Fecha de actualización: 21 de septiembre de 2026
 
-## Estado experimental
+## Resumen actual
 
-- **Etapa 0 — PASS mecanístico.** El caso lineal inicializado en identidad
-  reproduce cualitativamente la acción near-identity sobre el subespacio activo
-  y el control aleatorio confirma la dependencia de la base. La cifra MLP
-  `65.48%` no se reprodujo (`~51%`) y las fuentes oficiales no publican la receta
-  de optimización. Un control supervisado alcanzó `91.49%` de accuracy y
-  `88.05%` de pureza K-means, descartando falta de señal o capacidad del encoder
-  como explicación principal.
-- **Etapa 1 — PASS numérico.** El oracle de indicadoras centradas recupera el
-  subespacio activo de dimensión 3 y el espectro `{-1, i, -i}`. El error
-  espectral medio es `1.14e-15`, el error de entrelazamiento `1.59e-15` y el
-  máximo error de rollout hasta ocho pasos `9.62e-15`.
-- **Etapa 2A — PASS oracle.** Con 1024 transiciones por condición y marginales
-  idénticas, los operadores condicionales recuperan `{1,1,1}`, `{-1,i,-i}` y
-  `{0,0,0}` para las dinámicas estática, cíclica e independiente. El peor error
-  espectral es `3.33e-15`. En la condición independiente, el error contra una
-  muestra es `1.00`, pero contra la media condicional es `3.16e-16`.
-- **Etapa 2B — PASS de datos.** Las tres dinámicas reutilizan exactamente los
-  mismos bancos de ventanas actuales y futuras: la diferencia marginal máxima
-  es `0.00`. El decoder de templates recupera la fase con `100%` de accuracy y
-  las tres matrices de transición con error `0.00`; los bancos source y target
-  son realizaciones distintas.
-- **Etapa 3 — primer smoke neuronal, FAIL.** Con una seed cíclica y sólo
-  train/validation, el encoder alcanza probe de fase `100%`, rango efectivo
-  `2.846` y alineación `0.153`, pero el predictor falla en entrelazamiento
-  (`1.278`) y espectro (error máximo `1.074`).
-- **Diagnóstico post-hoc.** El operador ajustado entre embeddings online
-  recupera el espectro cíclico con error máximo `0.037`. La base online es
-  estable entre tiempos (`0.019`), pero difiere fuertemente de la base target
-  EMA (`0.812`). El predictor tampoco aproxima bien el mapa online→EMA.
-- **Sensibilidad EMA `0.90` — FAIL.** Cambiar sólo el momentum redujo el
-  desacople online/EMA a `0.182` y el entrelazamiento a `0.759`, pero el error
-  espectral del predictor permaneció alto (`1.059`). El post-hoc online siguió
-  correcto (`0.045`). El lag era parte del problema, no una explicación
-  suficiente.
-- **Siguiente:** instrumentar movimiento y gradientes del predictor y luego
-  congelar una sensibilidad de su learning rate. Test permanece sin construir.
+La primera pregunta experimental tiene una respuesta positiva en desarrollo.
+Con marginales observables idénticas, la misma arquitectura identifica la
+dinámica estática, cíclica e independiente en `10/10` seeds por condición,
+tanto mediante la acción \(MA\approx AK_d\) como mediante el espectro activo.
+Los errores de acción medianos son `0.142`, `0.068` y `0.015`, respectivamente.
+
+El resultado cíclico también se había reproducido sobre muestras held-out en
+`8/10` seeds con error mediano de entrelazamiento `0.068` y error espectral
+`0.067`. Un gate auxiliar de loss total falló por un threshold `0.50` sin
+fundamento Koopman; se conserva en la bitácora, pero no se usa para responder
+la hipótesis.
+
+La evidencia todavía está limitada a un sistema sintético de cuatro fases. El
+control conjunto de tres dinámicas usa validation, el encoder se congela tras
+tres épocas y el error multi-step crece para la condición estática y cíclica.
+La próxima evaluación confirmatoria debe congelar esta comparación completa y
+usar nuevas realizaciones ciegas antes de estudiar decaimiento u observaciones
+fuera de distribución.
 
 ## 1. Objetivo
 
@@ -554,10 +536,16 @@ media, varianza y covarianza calculados por batch. No se usará ese umbral para
 decidir H1 ni se lo relajará post-hoc; sus componentes quedan como diagnóstico
 de optimización.
 
-El siguiente experimento central es la **Etapa 3B**: entrenar la misma receta en
-las condiciones estática, cíclica e independiente con marginales compartidas y
-preguntar cuál de los tres operadores minimiza \(\lVert MA-AK_d\rVert_F\). El
-protocolo se fija en `docs/STAGE3_THREE_DYNAMICS_PROTOCOL.md` antes de ejecutar
-las condiciones nuevas. Esto prueba H3 directamente: si `M` sigue la dinámica,
-debe cambiar entre `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}` aunque la distribución de
-ventanas sea la misma.
+La comparación de tres dinámicas se congeló en
+`docs/STAGE3_THREE_DYNAMICS_PROTOCOL.md` antes de ejecutar las condiciones
+nuevas. En las 30 corridas, el operador correcto minimizó tanto el error de
+acción como el error espectral: `10/10` seeds estáticas, `10/10` cíclicas y
+`10/10` independientes, siempre con rango activo 3 y probe de fase `100%`. Los
+márgenes medianos frente al segundo candidato fueron `0.806`, `0.877` y `0.981`.
+
+Esto apoya H3 en desarrollo: `M` sigue la transición temporal y no sólo la
+distribución marginal de ventanas. La loss total fue registrada pero no
+participó en la decisión. La evidencia no es todavía confirmatoria porque la
+comparación conjunta usa validation. El siguiente paso científico es congelar
+el protocolo completo para datos ciegos nuevos y evaluar también la degradación
+multi-step observada a horizontes largos.

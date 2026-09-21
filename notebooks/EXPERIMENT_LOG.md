@@ -1,0 +1,112 @@
+# Bitácora técnica de experimentos
+
+Este documento conserva el historial completo de reproducción, debugging y
+sensibilidades. No es el recorrido recomendado para entender el proyecto. Los
+`PASS` y `FAIL` son etiquetas históricas de gates locales: algunos miden salud
+de optimización y no constituyen conclusiones sobre aprendizaje Koopman.
+
+## Recorrido histórico
+
+1. [`phase0_identity_reproduction.ipynb`](phase0_identity_reproduction.ipynb):
+   reproducción mínima del mecanismo invariante.
+2. [`paper_dataset_audit.ipynb`](paper_dataset_audit.ipynb): reconstrucción y
+   límites de identificabilidad del dataset del paper.
+3. [`paper_linear_identity_heldout_smoke.ipynb`](paper_linear_identity_heldout_smoke.ipynb)
+   y [`paper_linear_random_heldout_smoke.ipynb`](paper_linear_random_heldout_smoke.ipynb):
+   comparación held-out de predictores lineales.
+4. [`paper_supervised_separability_probe.ipynb`](paper_supervised_separability_probe.ipynb):
+   control que localiza la brecha MLP en el entrenamiento autosupervisado.
+5. [`stage1_four_phase_koopman_oracle.ipynb`](stage1_four_phase_koopman_oracle.ipynb):
+   validación algebraica del ciclo de cuatro fases.
+6. [`stage2_phase_dynamics_oracle.ipynb`](stage2_phase_dynamics_oracle.ipynb):
+   comparación estática/cíclica/independiente con marginales idénticas.
+7. [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb):
+   auditoría de la ley de emisión compartida antes del encoder neuronal.
+8. [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb):
+   primer entrenamiento sin acceso a la fase verdadera.
+9. [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb):
+   separación entre predictor entrenado y operadores post-hoc online/EMA.
+10. [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb):
+    sensibilidad de un solo factor con target EMA más rápido.
+11. [`stage3_cyclic_predictor_trace.ipynb`](stage3_cyclic_predictor_trace.ipynb):
+    trayectoria del predictor y descarte del checkpoint como explicación inicial.
+12. [`stage3_cyclic_predictor_fast_smoke.ipynb`](stage3_cyclic_predictor_fast_smoke.ipynb):
+    predictor `4×` y diagnóstico del desacople con validation loss.
+13. [`stage3_cyclic_predictor_fast_final_smoke.ipynb`](stage3_cyclic_predictor_fast_final_smoke.ipynb):
+    checkpoint final y localización de la inestabilidad de escala.
+14. [`stage3_cyclic_predictor_freeze_smoke.ipynb`](stage3_cyclic_predictor_freeze_smoke.ipynb):
+    optimización alternada con encoder congelado tras época 3.
+15. [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb):
+    horizonte de 60 épocas y primer PASS neuronal cíclico.
+16. [`stage3_cyclic_multiseed_development.ipynb`](stage3_cyclic_multiseed_development.ipynb):
+    robustez de la receta congelada sobre 10 seeds nuevas.
+17. [`stage3_cyclic_heldout.ipynb`](stage3_cyclic_heldout.ipynb):
+    primera evaluación ciega sobre emisiones test independientes.
+18. [`stage3_three_dynamics_control.ipynb`](stage3_three_dynamics_control.ipynb):
+    identificación neuronal de la dinámica correcta con marginales compartidas.
+
+## Registro completo
+
+### Etapa 0 — Reproducción y diagnóstico del paper
+
+| Notebook | Estado | Pregunta principal |
+|---|---:|---|
+| [`phase0_identity_reproduction.ipynb`](phase0_identity_reproduction.ipynb) | PASS mecanístico | ¿Aparece la solución invariante `λ=1` en el toy reducido? |
+| [`paper_dataset_audit.ipynb`](paper_dataset_audit.ipynb) | Auditoría | ¿La reconstrucción de los 18 regímenes respeta la geometría publicada? |
+| [`paper_overfit_smoke.ipynb`](paper_overfit_smoke.ipynb) | PASS | ¿Loss, optimizer y EMA pueden memorizar un batch sin colapsar? |
+| [`paper_train_validation_smoke.ipynb`](paper_train_validation_smoke.ipynb) | PASS agregado | ¿La señal predictiva generaliza en una corrida corta? |
+| [`paper_seed_stability_smoke.ipynb`](paper_seed_stability_smoke.ipynb) | FAIL | ¿Es estable la loss absoluta entre seeds? |
+| [`paper_seed_stability_scale_invariant.ipynb`](paper_seed_stability_scale_invariant.ipynb) | PASS estrecho | ¿Es estable la mejora relativa a su baseline? |
+| [`paper_linear_identity_heldout_smoke.ipynb`](paper_linear_identity_heldout_smoke.ipynb) | PASS | ¿El predictor identidad conserva su mecanismo en held-out? |
+| [`paper_linear_random_control_smoke.ipynb`](paper_linear_random_control_smoke.ipynb) | PASS desarrollo | ¿El control Xavier entrena con el mismo encoder y batches? |
+| [`paper_linear_random_heldout_smoke.ipynb`](paper_linear_random_heldout_smoke.ipynb) | FAIL formal | ¿El control aleatorio supera todos los umbrales held-out? |
+| [`paper_linear_random_heldout_diagnostic.ipynb`](paper_linear_random_heldout_diagnostic.ipynb) | Diagnóstico | ¿Cuánto depende la pureza de K-means y qué clases fallan? |
+| [`paper_mlp_clustering_development.ipynb`](paper_mlp_clustering_development.ipynb) | FAIL | ¿El MLP publicado aproximado conserva rango antes de clustering? |
+| [`paper_mlp_one_hidden_development.ipynb`](paper_mlp_one_hidden_development.ipynb) | FAIL | ¿Una sola capa oculta corrige el rango? |
+| [`paper_mlp_one_hidden_clustering_diagnostic.ipynb`](paper_mlp_one_hidden_clustering_diagnostic.ipynb) | Diagnóstico | ¿El checkpoint de mínimo error recupera la pureza publicada? |
+| [`paper_mlp_two_stage_one_hidden_development.ipynb`](paper_mlp_two_stage_one_hidden_development.ipynb) | FAIL | ¿La lectura alternativa `6144→64→32` corrige el rango? |
+| [`paper_mlp_two_stage_clustering_diagnostic.ipynb`](paper_mlp_two_stage_clustering_diagnostic.ipynb) | Diagnóstico | ¿La lectura de dos etapas mejora la pureza? |
+| [`paper_mlp_low_lr_development.ipynb`](paper_mlp_low_lr_development.ipynb) | FAIL | ¿Un learning rate menor explica la brecha? |
+| [`paper_mlp_medium_scale_development.ipynb`](paper_mlp_medium_scale_development.ipynb) | FAIL | ¿Cuatro veces más datos mejoran pureza y estabilidad? |
+| [`paper_mlp_gradient_clip_probe.ipynb`](paper_mlp_gradient_clip_probe.ipynb) | FAIL | ¿Clipping global evita la divergencia tardía? |
+| [`paper_mlp_step_decay_probe.ipynb`](paper_mlp_step_decay_probe.ipynb) | FAIL | ¿Step decay evita la divergencia tardía? |
+| [`paper_supervised_separability_probe.ipynb`](paper_supervised_separability_probe.ipynb) | PASS control | ¿Dataset y CNN contienen señal separable suficiente? |
+
+Conclusión de Etapa 0: el mecanismo lineal identidad se reproduce, pero no la
+pureza MLP `65.48%` del paper. El control supervisado llega a `91.49%` de
+accuracy y `88.05%` de pureza, por lo que la brecha queda localizada en la
+receta u objetivo autosupervisado no publicado, no en ausencia de señal.
+
+### Extensión Koopman no trivial
+
+| Notebook | Estado | Resultado |
+|---|---:|---|
+| [`stage1_four_phase_koopman_oracle.ipynb`](stage1_four_phase_koopman_oracle.ipynb) | PASS | Recupera rango activo 3 y espectro `{-1,i,-i}` con error espectral medio `1.14e-15`. |
+| [`stage2_phase_dynamics_oracle.ipynb`](stage2_phase_dynamics_oracle.ipynb) | PASS oracle | Con marginales idénticas recupera `{1,1,1}`, `{-1,i,-i}` y `{0,0,0}`; distingue error por muestra de error contra la media condicional. |
+| [`stage2_phase_observation_audit.ipynb`](stage2_phase_observation_audit.ipynb) | PASS datos | Reutiliza exactamente los mismos marginales observables, decodifica fase al `100%` y recupera las tres leyes temporales sin error. |
+| [`stage3_cyclic_neural_smoke.ipynb`](stage3_cyclic_neural_smoke.ipynb) | FAIL | Aprende fase y rango 3, pero falla entrelazamiento (`1.278`) y espectro del predictor (error máximo `1.074`). |
+| [`stage3_cyclic_neural_smoke_diagnostic.ipynb`](stage3_cyclic_neural_smoke_diagnostic.ipynb) | Diagnóstico | El post-hoc online recupera el espectro (error máximo `0.037`); el target EMA usa una base rezagada (`0.812`). |
+| [`stage3_cyclic_neural_ema_fast_smoke.ipynb`](stage3_cyclic_neural_ema_fast_smoke.ipynb) | FAIL | EMA `0.90` reduce el desacople de base a `0.182`, pero el predictor conserva error espectral `1.059`; el post-hoc online sigue correcto (`0.045`). |
+| [`stage3_cyclic_predictor_trace.ipynb`](stage3_cyclic_predictor_trace.ipynb) | Diagnóstico | Con `M` a `1×`, ninguna época cruza el gate espectral; el mejor error es `1.049` frente a `0.037` post-hoc. |
+| [`stage3_cyclic_predictor_fast_smoke.ipynb`](stage3_cyclic_predictor_fast_smoke.ipynb) | FAIL formal | `M` a `4×` llega a error espectral/endomorfismo `0.045` en época 30, pero validation total selecciona época 3. |
+| [`stage3_cyclic_predictor_fast_final_smoke.ipynb`](stage3_cyclic_predictor_fast_final_smoke.ipynb) | FAIL | El checkpoint final recupera dinámica (`0.045`) pero la covariance loss de validation explota a `18.990`. |
+| [`stage3_cyclic_predictor_freeze_smoke.ipynb`](stage3_cyclic_predictor_freeze_smoke.ipynb) | FAIL estrecho | Congelar el encoder estabiliza loss, escala y rango; sólo falla espectro (`0.366` frente a `0.35`). |
+| [`stage3_cyclic_predictor_freeze_long_smoke.ipynb`](stage3_cyclic_predictor_freeze_long_smoke.ipynb) | PASS desarrollo | A 60 épocas pasa todos los gates: validation ratio `0.236`, entrelazamiento `0.078` y error espectral `0.079`. |
+| [`stage3_cyclic_multiseed_development.ipynb`](stage3_cyclic_multiseed_development.ipynb) | PASS agregado | La receta congelada pasa en `8/10` seeds; medianas de entrelazamiento/espectro `0.068/0.067`. Seeds 6–7 revelan una cola de bajo rango. |
+| [`stage3_cyclic_heldout.ipynb`](stage3_cyclic_heldout.ipynb) | FAIL formal | Replay validation exacto; dinámica generaliza (`0.068/0.067`), pero `0/10` pasa el ratio test/baseline ≤`0.50` (mediana `0.582`). Test consumido. |
+| [`stage3_three_dynamics_control.ipynb`](stage3_three_dynamics_control.ipynb) | Evidencia principal | Con marginales idénticas, acción y espectro identifican estática, cíclica e independiente en `10/10` seeds por condición. La loss no decide el resultado. |
+
+## Convenciones
+
+- `paper_*`: reproducción, sensibilidades o controles asociados al trabajo
+  AAAI 2026.
+- `stage*`: extensión propia hacia modos de Koopman no triviales.
+- `*_development`: sólo usa train/validation.
+- `*_heldout_*`: consume una partición de test; sus thresholds no se cambian
+  después de observarla.
+- `*_diagnostic` y `*_probe`: análisis post-hoc o sensibilidad; no convierten
+  un `FAIL` previo en `PASS`.
+
+Los parámetros congelados están en [`../configs`](../configs), la lógica
+reutilizable en [`../src/koopman_jepa`](../src/koopman_jepa) y los contratos de
+reproducibilidad en [`../tests`](../tests).
