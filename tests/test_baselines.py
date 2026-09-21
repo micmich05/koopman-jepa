@@ -1,14 +1,19 @@
 import numpy as np
 import pytest
+import torch
 
 from koopman_jepa.baselines import (
+    collect_encoder_features,
     fit_pca_dmd,
     fit_pca_feature_map,
+    fit_random_cnn_dmd,
     fit_raw_window_dmd,
     fit_ridge_operator,
     flatten_windows,
+    make_random_cnn_encoder,
     select_ridge_operator,
 )
+from koopman_jepa.model import TemporalJEPA
 
 
 def _embedded_linear_windows() -> tuple[np.ndarray, ...]:
@@ -173,3 +178,87 @@ def test_pca_feature_map_rejects_too_many_components() -> None:
 
     with pytest.raises(ValueError, match="n_components"):
         fit_pca_feature_map(windows, windows, n_components=4)
+
+
+def test_random_encoder_matches_seeded_jepa_online_initialization() -> None:
+    seed = 31
+    torch.manual_seed(seed)
+    jepa = TemporalJEPA(
+        latent_dim=3,
+        channels=[4, 8],
+        predictor_init="random",
+        pooling="flatten",
+        input_length=32,
+    )
+
+    random_encoder = make_random_cnn_encoder(
+        seed=seed,
+        latent_dim=3,
+        channels=[4, 8],
+        pooling="flatten",
+        input_length=32,
+    )
+
+    for random_parameter, jepa_parameter in zip(
+        random_encoder.parameters(),
+        jepa.online_encoder.parameters(),
+        strict=True,
+    ):
+        assert torch.equal(random_parameter, jepa_parameter)
+        assert random_parameter.requires_grad is False
+
+
+def test_collect_encoder_features_is_batch_size_invariant() -> None:
+    encoder = make_random_cnn_encoder(
+        seed=37,
+        latent_dim=3,
+        channels=[4],
+        pooling="flatten",
+        input_length=16,
+    )
+    windows = torch.randn(11, 1, 16)
+
+    small_batches = collect_encoder_features(encoder, windows, batch_size=3)
+    one_batch = collect_encoder_features(encoder, windows, batch_size=11)
+
+    np.testing.assert_allclose(small_batches, one_batch, atol=1e-7)
+    assert small_batches.shape == (11, 3)
+
+
+def test_random_cnn_dmd_keeps_encoder_frozen() -> None:
+    generator = torch.Generator().manual_seed(41)
+    train_current = torch.randn(32, 1, 16, generator=generator)
+    train_future = torch.roll(train_current, shifts=2, dims=-1)
+    validation_current = torch.randn(16, 1, 16, generator=generator)
+    validation_future = torch.roll(validation_current, shifts=2, dims=-1)
+    reference = make_random_cnn_encoder(
+        seed=43,
+        latent_dim=3,
+        channels=[4],
+        pooling="flatten",
+        input_length=16,
+    )
+
+    fit = fit_random_cnn_dmd(
+        train_current,
+        train_future,
+        validation_current,
+        validation_future,
+        seed=43,
+        latent_dim=3,
+        channels=[4],
+        pooling="flatten",
+        input_length=16,
+        batch_size=8,
+        regularizations=[0.0, 1e-4, 1e-2],
+    )
+
+    for actual, expected in zip(
+        fit.encoder.parameters(),
+        reference.parameters(),
+        strict=True,
+    ):
+        assert torch.equal(actual, expected)
+        assert actual.requires_grad is False
+    assert fit.transform(validation_current).shape == (16, 3)
+    assert np.isfinite(fit.operator.validation_mse)

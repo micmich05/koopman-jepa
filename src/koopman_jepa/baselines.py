@@ -4,6 +4,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
+import torch
+from torch import nn
+
+from .model import TemporalEncoder
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +53,19 @@ class PCAOperatorSelection:
         return self.operator.center(self.feature_map.transform(windows))
 
 
+@dataclass(frozen=True, slots=True)
+class RandomCNNOperatorSelection:
+    """A frozen random encoder and its validation-selected linear operator."""
+
+    encoder: TemporalEncoder
+    operator: RidgeOperatorSelection
+    batch_size: int
+
+    def transform(self, windows: np.ndarray | torch.Tensor) -> np.ndarray:
+        features = collect_encoder_features(self.encoder, windows, self.batch_size)
+        return self.operator.center(features)
+
+
 def _feature_matrix(values: np.ndarray, name: str) -> np.ndarray:
     matrix = np.asarray(values, dtype=np.float64)
     if matrix.ndim != 2:
@@ -71,6 +88,61 @@ def flatten_windows(windows: np.ndarray) -> np.ndarray:
     if not np.isfinite(observations).all():
         raise ValueError("windows must contain only finite values")
     return observations.reshape(observations.shape[0], -1)
+
+
+def make_random_cnn_encoder(
+    seed: int,
+    latent_dim: int,
+    channels: list[int],
+    pooling: str,
+    input_length: int,
+    device: torch.device | str = "cpu",
+) -> TemporalEncoder:
+    """Create the exact online-encoder initialization used by a seeded JEPA."""
+
+    if not isinstance(seed, int):
+        raise ValueError("seed must be an integer")
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(seed)
+        encoder = TemporalEncoder(
+            latent_dim=latent_dim,
+            channels=channels,
+            pooling=pooling,  # type: ignore[arg-type]
+            input_length=input_length,
+        )
+    encoder.requires_grad_(False)
+    encoder.eval()
+    return encoder.to(device)
+
+
+@torch.no_grad()
+def collect_encoder_features(
+    encoder: nn.Module,
+    windows: np.ndarray | torch.Tensor,
+    batch_size: int,
+) -> np.ndarray:
+    """Encode windows deterministically without updating the encoder."""
+
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    tensor = torch.as_tensor(windows, dtype=torch.float32)
+    if tensor.ndim != 3 or tensor.shape[1] != 1:
+        raise ValueError("windows must have shape (samples, 1, length)")
+    if tensor.shape[0] == 0 or tensor.shape[2] == 0:
+        raise ValueError("windows must have non-empty sample and length dimensions")
+    if not torch.isfinite(tensor).all():
+        raise ValueError("windows must contain only finite values")
+
+    try:
+        device = next(encoder.parameters()).device
+    except StopIteration:
+        device = torch.device("cpu")
+    encoder.eval()
+    batches = [
+        encoder(tensor[start : start + batch_size].to(device)).detach().cpu().numpy()
+        for start in range(0, tensor.shape[0], batch_size)
+    ]
+    return np.concatenate(batches, axis=0).astype(np.float64, copy=False)
 
 
 def fit_pca_feature_map(
@@ -237,3 +309,54 @@ def fit_pca_dmd(
         regularizations,
     )
     return PCAOperatorSelection(feature_map=feature_map, operator=operator)
+
+
+def fit_random_cnn_dmd(
+    train_current: np.ndarray | torch.Tensor,
+    train_future: np.ndarray | torch.Tensor,
+    validation_current: np.ndarray | torch.Tensor,
+    validation_future: np.ndarray | torch.Tensor,
+    *,
+    seed: int,
+    latent_dim: int,
+    channels: list[int],
+    pooling: str,
+    input_length: int,
+    batch_size: int,
+    regularizations: Sequence[float],
+    device: torch.device | str = "cpu",
+) -> RandomCNNOperatorSelection:
+    """Fit ridge-DMD on a seeded CNN that is never trained."""
+
+    encoder = make_random_cnn_encoder(
+        seed=seed,
+        latent_dim=latent_dim,
+        channels=channels,
+        pooling=pooling,
+        input_length=input_length,
+        device=device,
+    )
+    train_current_features = collect_encoder_features(encoder, train_current, batch_size)
+    train_future_features = collect_encoder_features(encoder, train_future, batch_size)
+    validation_current_features = collect_encoder_features(
+        encoder,
+        validation_current,
+        batch_size,
+    )
+    validation_future_features = collect_encoder_features(
+        encoder,
+        validation_future,
+        batch_size,
+    )
+    operator = select_ridge_operator(
+        train_current_features,
+        train_future_features,
+        validation_current_features,
+        validation_future_features,
+        regularizations,
+    )
+    return RandomCNNOperatorSelection(
+        encoder=encoder,
+        operator=operator,
+        batch_size=batch_size,
+    )
