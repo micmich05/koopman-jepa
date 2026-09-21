@@ -110,16 +110,31 @@ def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
     model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
 
     baseline = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
+    callback_epochs: list[int] = []
+
+    def callback(
+        epoch: int,
+        _model: TemporalJEPA,
+        _row: dict[str, float],
+    ) -> dict[str, float]:
+        callback_epochs.append(epoch)
+        return {"callback_marker": float(epoch * 10)}
+
     result = train_model_with_validation_checkpoint(
         model,
         datasets.train,
         datasets.val,
         config,
         torch.device("cpu"),
+        epoch_callback=callback,
     )
     selected = evaluate_model_loss(model, datasets.val, config, torch.device("cpu"))
 
     assert math.isfinite(baseline.loss)
     assert len(result.history) == 2
+    assert callback_epochs == [1, 2]
+    assert result.history[-1]["callback_marker"] == 20.0
+    assert result.history[-1]["train_online_gradient_norm"] > 0.0
+    assert result.history[-1]["train_predictor_gradient_norm"] > 0.0
     assert result.best_epoch in {1, 2}
     assert math.isclose(selected.loss, result.best_validation_loss, rel_tol=1e-6)

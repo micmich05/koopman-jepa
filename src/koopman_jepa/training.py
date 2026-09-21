@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,8 @@ class EpochMetrics:
     mean_loss: float
     variance_loss: float
     covariance_loss: float
+    online_gradient_norm: float
+    predictor_gradient_norm: float
 
 
 @dataclass(slots=True)
@@ -27,6 +30,12 @@ class TrainingResult:
     history: list[dict[str, float]]
     best_epoch: int
     best_validation_loss: float
+
+
+EpochCallback = Callable[
+    [int, TemporalJEPA, dict[str, float]],
+    dict[str, float] | None,
+]
 
 
 def set_seed(seed: int) -> None:
@@ -65,6 +74,14 @@ def make_loader(
     )
 
 
+def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
+    squared_norm = torch.zeros((), device=parameters[0].device)
+    for parameter in parameters:
+        if parameter.grad is not None:
+            squared_norm += parameter.grad.detach().square().sum()
+    return float(torch.sqrt(squared_norm))
+
+
 def _run_epoch(
     model: TemporalJEPA,
     loader: DataLoader,
@@ -75,7 +92,7 @@ def _run_epoch(
     training = optimizer is not None
     model.train(training)
     mse = nn.MSELoss()
-    totals = np.zeros(6, dtype=np.float64)
+    totals = np.zeros(8, dtype=np.float64)
 
     for context, target, _ in loader:
         context = context.to(device)
@@ -109,11 +126,16 @@ def _run_epoch(
                 + config.train.covariance_weight * covariance_term
             )
 
+            online_gradient_norm = 0.0
+            predictor_gradient_norm = 0.0
             if training:
                 loss.backward()
+                online_parameters = list(model.online_encoder.parameters())
+                predictor_parameters = list(model.predictor.parameters())
+                online_gradient_norm = _gradient_norm(online_parameters)
+                predictor_gradient_norm = _gradient_norm(predictor_parameters)
                 torch.nn.utils.clip_grad_norm_(
-                    list(model.online_encoder.parameters())
-                    + list(model.predictor.parameters()),
+                    online_parameters + predictor_parameters,
                     max_norm=5.0,
                 )
                 optimizer.step()
@@ -128,8 +150,21 @@ def _run_epoch(
                 float(mean_term.detach()),
                 float(variance_term.detach()),
                 float(covariance_term.detach()),
+                online_gradient_norm,
+                predictor_gradient_norm,
             ]
-        ) * np.array([1.0, batch_size, batch_size, batch_size, batch_size, batch_size])
+        ) * np.array(
+            [
+                1.0,
+                batch_size,
+                batch_size,
+                batch_size,
+                batch_size,
+                batch_size,
+                batch_size,
+                batch_size,
+            ]
+        )
 
     count = max(totals[0], 1.0)
     return EpochMetrics(
@@ -138,6 +173,8 @@ def _run_epoch(
         mean_loss=float(totals[3] / count),
         variance_loss=float(totals[4] / count),
         covariance_loss=float(totals[5] / count),
+        online_gradient_norm=float(totals[6] / count),
+        predictor_gradient_norm=float(totals[7] / count),
     )
 
 
@@ -148,6 +185,7 @@ def _fit_model(
     config: ExperimentConfig,
     device: torch.device,
     restore_best: bool,
+    epoch_callback: EpochCallback | None = None,
 ) -> TrainingResult:
     train_loader = make_loader(
         train_dataset,
@@ -185,12 +223,21 @@ def _fit_model(
             "train_mean_loss": train_metrics.mean_loss,
             "train_variance_loss": train_metrics.variance_loss,
             "train_covariance_loss": train_metrics.covariance_loss,
+            "train_online_gradient_norm": train_metrics.online_gradient_norm,
+            "train_predictor_gradient_norm": train_metrics.predictor_gradient_norm,
             "val_loss": val_metrics.loss,
             "val_prediction_loss": val_metrics.prediction_loss,
             "val_mean_loss": val_metrics.mean_loss,
             "val_variance_loss": val_metrics.variance_loss,
             "val_covariance_loss": val_metrics.covariance_loss,
         }
+        if epoch_callback is not None:
+            callback_metrics = epoch_callback(epoch, model, row)
+            if callback_metrics is not None:
+                overlap = row.keys() & callback_metrics.keys()
+                if overlap:
+                    raise ValueError(f"epoch callback cannot overwrite metrics: {sorted(overlap)}")
+                row.update(callback_metrics)
         history.append(row)
         if val_metrics.loss < best_validation_loss:
             best_epoch = epoch
@@ -232,6 +279,7 @@ def train_model(
         config,
         device,
         restore_best=False,
+        epoch_callback=None,
     ).history
 
 
@@ -241,6 +289,7 @@ def train_model_with_validation_checkpoint(
     val_dataset: TensorDataset,
     config: ExperimentConfig,
     device: torch.device,
+    epoch_callback: EpochCallback | None = None,
 ) -> TrainingResult:
     """Train and restore the checkpoint with the lowest total validation loss."""
 
@@ -251,6 +300,7 @@ def train_model_with_validation_checkpoint(
         config,
         device,
         restore_best=True,
+        epoch_callback=epoch_callback,
     )
 
 
