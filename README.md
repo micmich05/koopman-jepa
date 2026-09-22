@@ -22,10 +22,12 @@ $$
 where $K$ is the known operator on the hidden phase, and $A$ maps phase
 coordinates into the learned latent basis.
 
-> **Answer in this controlled system:** yes. The learned predictor distinguishes
-> static, cyclic, and independent transitions in 10/10 seeds per condition. Its
-> active spectrum also changes continuously with the persistence of the
-> dynamics, with spectral-modulus MAE 0.027 and $R^2=0.9998$.
+> **Exploratory finding in this controlled toy system:** the learned predictor
+> distinguishes static, cyclic, and independent transitions in 10/10 seeds per
+> condition. Its active spectrum also changes continuously with dynamic
+> persistence, with spectral-modulus MAE 0.027 and $R^2=0.9998$. This describes
+> the behavior of the complete setup; it does not yet isolate which modeling or
+> optimization choices make that behavior possible.
 
 [Short PDF report](output/pdf/koopman_jepa_overview.pdf)
 
