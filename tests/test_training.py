@@ -187,7 +187,7 @@ def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
     validation_dataset = _paired_dataset(seed=1, sample_count=6)
     model = TemporalJEPA(latent_dim=3, channels=[4], predictor_init="random")
 
-    baseline = evaluate_model_loss(model, validation_dataset, config, torch.device("cpu"))
+    initial_metrics = evaluate_model_loss(model, validation_dataset, config, torch.device("cpu"))
     callback_epochs: list[int] = []
 
     def callback(
@@ -208,7 +208,7 @@ def test_validation_checkpoint_and_loss_evaluation_are_available() -> None:
     )
     selected = evaluate_model_loss(model, validation_dataset, config, torch.device("cpu"))
 
-    assert math.isfinite(baseline.loss)
+    assert math.isfinite(initial_metrics.loss)
     assert len(result.history) == 2
     assert callback_epochs == [1, 2]
     assert result.history[-1]["callback_marker"] == 20.0

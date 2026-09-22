@@ -23,7 +23,7 @@ def test_decay_generalization_protocol_is_frozen_before_training() -> None:
 def test_protocol_states_the_scientific_scope() -> None:
     protocol = PROTOCOL_PATH.read_text(encoding="utf-8")
 
-    assert "Familia continua" in protocol
-    assert "8/10 seeds" in protocol
-    assert "La loss no interviene" in protocol
-    assert "criterio discreto global no pasa" in protocol
+    assert "Continuous family" in protocol
+    assert "8/10 correct seeds" in protocol
+    assert "Training loss does not enter" in protocol
+    assert "strict discrete criterion does not pass" in protocol

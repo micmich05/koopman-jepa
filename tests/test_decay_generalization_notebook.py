@@ -119,4 +119,4 @@ def test_decay_notebook_records_the_frozen_result() -> None:
     assert '"correct_spectrum_seeds\\": 7' in rendered_output
     assert '"calibration_mae\\": 0.027104698032484175' in rendered_output
     assert '"calibration_r2\\": 0.999829653081684' in rendered_output
-    assert "al menos una condición no alcanza el criterio predeclarado" in rendered_output
+    assert "at least one condition does not reach the predeclared criterion" in rendered_output

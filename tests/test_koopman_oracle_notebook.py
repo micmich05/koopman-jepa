@@ -30,5 +30,5 @@ def test_koopman_oracle_notebook_is_executed() -> None:
         for output in cell["outputs"]
     )
     rendered = json.dumps(notebook, ensure_ascii=False)
-    assert "Comprobación matemática: **PASS**" in rendered
-    assert "Error espectral medio/máximo: **1.14e-15 / 2.11e-15**" in rendered
+    assert "Mathematical check: **PASS**" in rendered
+    assert "Mean/maximum spectral error: **1.14e-15 / 2.11e-15**" in rendered

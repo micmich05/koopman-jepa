@@ -50,10 +50,10 @@ def test_phase_observation_notebook_is_executed() -> None:
     )
 
     rendered = json.dumps(notebook, ensure_ascii=False)
-    assert "sólo cambia el acoplamiento temporal" in rendered
-    assert "no como encoder aprendido" in rendered
-    assert "Auditoría de datos: **PASS**" in rendered
-    assert "Máxima diferencia entre marginales observables pareados: **0.00e+00**" in rendered
-    assert "Peor accuracy del decoder de fase oracle: **100.00%**" in rendered
-    assert "Máximo error de las transiciones decodificadas: **0.00e+00**" in rendered
-    assert "Diferencia absoluta media entre los bancos source y target: **0.341**" in rendered
+    assert "only the temporal coupling between windows changes" in rendered
+    assert "not as a learned encoder" in rendered
+    assert "Dataset audit: **PASS**" in rendered
+    assert "Maximum difference between paired observable marginals: **0.00e+00**" in rendered
+    assert "Worst phase-oracle decoder accuracy: **100.00%**" in rendered
+    assert "Maximum decoded-transition error: **0.00e+00**" in rendered
+    assert "Mean absolute difference between source and target banks: **0.341**" in rendered

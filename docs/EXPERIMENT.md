@@ -1,57 +1,60 @@
-# Diseño y alcance del experimento
+# Experiment design and scope
 
-## Pregunta
+## Question
 
-¿Aprende el JEPA una representación `z=fθ(x)` y un predictor lineal `M` tales
-que `Mz_t≈z_{t+1}` y, sobre el span dinámico, `MA≈AK`?
+Does a temporal JEPA learn a representation `z=fθ(x)` and a linear predictor
+`M` such that `Mz_t≈z_{t+1}` and, on the active latent span, `MA≈AK`?
 
-## Control experimental
+The objective is to characterize JEPA's learned dynamics, not to optimize a
+generic forecasting score.
 
-- Estado oculto: cuatro fases; rango dinámico verdadero 3 tras centrar.
-- Observación: ventanas de longitud 128 con amplitud, offset, jitter y ruido.
-- Control clave: los mismos bancos de ventanas se reutilizan en todas las
-  dinámicas; sólo cambia el emparejamiento presente–futuro.
-- Train/validation: 1024/256 pares por seed y condición.
-- Modelo: CNN `1→16→32`, flatten, latent 3, predictor lineal `3×3` sin bias.
-- Entrenamiento: 60 épocas, EMA 0.90, LR del predictor `4×`, freeze del encoder
-  tras la época 3, regularización de media/varianza/covarianza.
+## Controlled setup
 
-Estas elecciones delimitan la afirmación. En particular, la dimensión latente
-correcta y el freeze son supuestos del resultado.
+- Hidden state: four phases; centered dynamic rank 3.
+- Observation: length-128 windows with random amplitude, offset, temporal
+  jitter, and noise.
+- Central control: every condition reuses the same current and future window
+  banks; only present-future pairing changes.
+- Train/validation: 1,024/256 pairs per seed and condition.
+- Model: `1→16→32` CNN, flattening, 3D latent, linear `3×3` predictor without
+  bias.
+- Training: 60 epochs, EMA 0.90, predictor learning rate `4×`, encoder frozen
+  after epoch 3, and mean/variance/covariance regularization.
 
-## Evidencia conservada
+The correct latent dimension and early encoder freeze are assumptions of the
+reported result.
 
-| Evidencia | Datos | Repeticiones | Estado |
+## Preserved evidence
+
+| Evidence | Data | Repetitions | Result |
 |---|---|---:|---|
-| Oracle matemático | fase verdadera, ciclo | determinista | exacto a precisión numérica |
-| Auditoría de observación | tres pairings | 1024 pares por condición | marginales idénticos |
-| Tres operadores | estática/cíclica/independiente | 10 seeds cada uno | 10/10 por acción y espectro |
-| Familia continua | $\rho\in\{0,.25,.5,.75,1\}$ | 10 seeds por nivel | MAE 0.027; $R^2=0.9998$ |
-| Baselines | misma familia continua | 1 seed de validation | exploratorio; sin held-out |
+| Mathematical oracle | true phase, cyclic law | deterministic | exact to numerical precision |
+| Observation audit | three temporal pairings | 1,024 pairs each | identical single-window marginals |
+| Three dynamics | static/cyclic/independent | 10 seeds each | 10/10 by action and spectrum |
+| Continuous family | $\rho\in\{0,.25,.5,.75,1\}$ | 10 seeds each | modulus MAE 0.027; $R^2=0.9998$ |
 
-## Reglas de evaluación
+## Evaluation
 
-La acción se mide con
+The action metric is
 
-`||MA-AK||_F / ||A||_F`,
+`||MA-AK||_F / ||A||_F`.
 
-y el espectro se calcula restringiendo `M` al span de los centroides latentes.
-Para la clasificación se exigieron al menos 8/10 seeds correctas por condición.
-La loss no interviene en la decisión.
+The spectrum is computed after restricting `M` to the span of the latent phase
+centroids. Discrete identification requires at least 8/10 correct seeds in each
+condition. Training loss does not enter the decision.
 
-En la familia continua, el criterio discreto global no pasa porque `rho=1`
-obtiene 7/10. La calibración continua sí es fuerte y se reporta con sus valores,
-sin convertirla en un nuevo umbral post-hoc.
+In the continuous family, the strict discrete criterion does not pass at
+`rho=1`, which obtains 7/10. Continuous calibration remains close to linear.
+Both facts are reported without introducing a post-hoc threshold.
 
-## Lectura final
+## Final interpretation
 
-La evidencia apoya posibilidad, no necesidad: JEPA aprende el ciclo y la tasa
-de decaimiento bajo esta receta. La comparación exploratoria muestra que DMD
-crudo y PCA+DMD también resuelven este dataset y que un DMD post-hoc sobre el
-encoder JEPA mejora mucho al predictor entrenado. Por lo tanto, el claim final
-no es “JEPA descubre Koopman en general”, sino “este JEPA puede representar la
-dinámica no trivial del sistema controlado, aunque el problema también admite
-soluciones lineales más simples”.
+This JEPA learns a non-invariant latent dynamics: changing only temporal pairing
+changes the action and active spectrum of its linear predictor. The predictor
+recovers a nontrivial cyclic spectrum and tracks continuous dynamic persistence.
+Its slight contraction at high persistence and its accumulating rollout error
+are the main observed limitations.
 
-El estudio se cierra aquí. No se abrió el held-out de baselines y no se infiere
-una comparación estadística que no fue ejecutada.
+The claim is restricted to this observation process, latent dimension, and
+training recipe. It does not imply universal Koopman recovery or robustness to
+different observations and state spaces.

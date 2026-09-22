@@ -1,13 +1,12 @@
-# Configuraciones
+# Configurations
 
-- [`observation_audit.yaml`](observation_audit.yaml): emisión y checks de
-  integridad de los datos.
-- [`three_dynamics.yaml`](three_dynamics.yaml): prueba principal de los tres
-  operadores, 10 seeds por condición.
-- [`koopman_decay_generalization.yaml`](koopman_decay_generalization.yaml):
-  familia $K_\rho=\rho C$, cinco valores de $\rho$ y 10 seeds.
-- [`koopman_decay_baselines.yaml`](koopman_decay_baselines.yaml): métodos de la
-  comparación exploratoria; sólo se ejecutó la seed 101 sobre validación.
+- [`observation_audit.yaml`](observation_audit.yaml) defines the observation
+  process and dataset-integrity checks.
+- [`three_dynamics.yaml`](three_dynamics.yaml) defines the static, cyclic, and
+  independent JEPA experiment with 10 seeds per condition.
+- [`koopman_decay_generalization.yaml`](koopman_decay_generalization.yaml)
+  defines the family $K_\rho=\rho C$ at five persistence values with 10 seeds
+  per value.
 
-Los umbrales de identificación se fijaron antes de ejecutar cada comparación.
-No hay umbrales de loss usados para decidir éxito o fracaso.
+Identification criteria were fixed before each experiment. Training loss is
+never used as an operator-identification threshold.

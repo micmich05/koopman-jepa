@@ -56,7 +56,7 @@ def test_three_dynamics_control_records_the_frozen_result() -> None:
     assert rendered_output.count('"correct_spectrum_seeds\\": 10') == 3
     assert rendered_output.count('"full_rank_seeds\\": 10') == 3
     assert '"loss_used_for_decision\\": false' in rendered_output
-    assert "el predictor identifica la dinámica" in rendered_output
+    assert "the predictor identifies the dynamics" in rendered_output
     assert sum(
         "image/png" in output.get("data", {})
         for cell in notebook["cells"]

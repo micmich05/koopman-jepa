@@ -1,6 +1,6 @@
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage[english]{babel}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
@@ -30,7 +30,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\textcolor{navy}{Koopman--JEPA}}
-\rhead{\textcolor{navy}{Informe final}}
+\rhead{\textcolor{navy}{Final report}}
 \cfoot{\thepage}
 
 \newcommand{\resultbox}[1]{%
@@ -43,62 +43,62 @@
 \begin{center}
   {\Huge\bfseries\color{navy} Koopman--JEPA}\par
   \vspace{3mm}
-  {\Large ¿Puede un JEPA aprender operadores dinámicos no triviales?}\par
+  {\Large How does a temporal JEPA encode dynamics?}\par
   \vspace{2mm}
-  {\large Informe final del experimento controlado}\par
+  {\large Final report of the controlled experiment}\par
   \vspace{2mm}
-  {\small Septiembre de 2026}
+  {\small September 2026}
 \end{center}
 
-\resultbox{Sí, bajo los datos y la receta estudiados: el predictor identifica
-tres operadores en 10/10 seeds por condición y sigue una familia continua con
-MAE espectral 0.027. Esto demuestra posibilidad, no necesidad ni superioridad:
-DMD crudo y PCA+DMD también resuelven este dataset.}
+\resultbox{When only temporal pairing changes, the learned predictor changes
+with it. Static, cyclic, and independent laws are identified in 10/10 seeds per
+condition, and the active spectrum tracks continuous dynamic persistence with
+spectral-modulus MAE 0.027.}
 
-\section{Pregunta}
+\section{Question}
 
-Buscamos una representación $z_t=f_\theta(x_t)$ y un predictor lineal $M$ tales
-que
+We seek a representation $z_t=f_\theta(x_t)$ and a linear predictor $M$ such
+that
 \[
 M z_t\approx z_{t+1}.
 \]
-Si $\psi(r_t)$ describe la fase verdadera, $K$ es su operador y el encoder
-aprende $z\approx A\psi$, la prueba relevante es
+If $\psi(r_t)$ describes the true phase, $K$ is its operator, and the encoder
+learns $z\approx A\psi$, the relevant test is
 \[
 \boxed{MA\approx AK}.
 \]
-No exigimos $M=K$: el encoder puede elegir otra base. Medimos tanto la acción
-de $M$ como su espectro restringido al span activo de los centroides latentes.
+The encoder may choose any latent basis, so we do not require $M=K$. We compare
+both the action of $M$ and its spectrum restricted to the active latent span.
 
-\section{Datos y control causal}
+\section{Controlled observations}
 
-El estado oculto tiene cuatro fases $r\in\{0,1,2,3\}$. Cada fase genera una
-ventana de longitud 128:
+The hidden state has four phases $r\in\{0,1,2,3\}$. Each phase emits a
+length-128 window:
 \[
 x_t[\tau]=a_t\,s_{r_t}(\tau-\delta_t)+b_t+\epsilon_{t,\tau},
 \]
-con amplitud, offset, jitter temporal y ruido independientes. Los mismos bancos
-de ventanas actuales y futuras se reutilizan en todas las condiciones; sólo
-cambia el emparejamiento temporal.
+with random amplitude, offset, temporal jitter, and noise. Every condition
+reuses exactly the same current and future window banks; only temporal pairing
+changes.
 
 \begin{center}
 \begin{tabularx}{\textwidth}{@{}lXl@{}}
 \toprule
-\textbf{Dinámica} & \textbf{Transición} & \textbf{Espectro activo}\\
+\textbf{Dynamics} & \textbf{Transition} & \textbf{Active spectrum}\\
 \midrule
-Estática & $r_{t+1}=r_t$ & $\{1,1,1\}$\\
-Cíclica & $r_{t+1}=r_t+1\pmod 4$ & $\{-1,i,-i\}$\\
-Independiente & fase futura uniforme & $\{0,0,0\}$\\
+Static & $r_{t+1}=r_t$ & $\{1,1,1\}$\\
+Cyclic & $r_{t+1}=r_t+1\pmod 4$ & $\{-1,i,-i\}$\\
+Independent & uniform future phase & $\{0,0,0\}$\\
 \bottomrule
 \end{tabularx}
 \end{center}
 
-Por seed y condición usamos 1024 pares de entrenamiento y 256 de validación.
-La prueba principal repite 10 seeds. La auditoría verifica marginales idénticos,
-transiciones correctas y fase perfectamente decodificable; una ventana aislada
-no revela a qué dinámica pertenece.
+Each seed and condition contains 1,024 training pairs and 256 validation pairs.
+The main comparison uses 10 paired seeds. The observation audit verifies
+identical single-window marginals, correct transitions, and perfectly
+decodable phase.
 
-\section{Arquitectura y supuestos}
+\section{Architecture and assumptions}
 
 \begin{center}
 \resizebox{\textwidth}{!}{%
@@ -112,15 +112,15 @@ no revela a qué dinámica pertenece.
                minimum height=9mm,text width=24mm,font=\small},
   arrow/.style={-{Latex[length=2mm]},thick,draw=navy}
 ]
-\node[box] (xt) {ventana actual\\$x_t\in\mathbb{R}^{1\times128}$};
-\node[box,right=of xt] (online) {encoder online\\Conv $1\to16\to32$\\Flatten, Linear $\to3$};
+\node[box] (xt) {current window\\$x_t\in\mathbb{R}^{1\times128}$};
+\node[box,right=of xt] (online) {online encoder\\Conv $1\to16\to32$\\Flatten, Linear $\to3$};
 \node[latent,right=of online] (zt) {$z_t\in\mathbb{R}^3$};
-\node[box,right=of zt] (pred) {predictor lineal\\$M\in\mathbb{R}^{3\times3}$\\sin bias};
+\node[box,right=of zt] (pred) {linear predictor\\$M\in\mathbb{R}^{3\times3}$\\no bias};
 \node[latent,right=of pred] (zhat) {$\widehat z_{t+1}$};
-\node[box,below=20mm of xt] (xnext) {ventana futura\\$x_{t+1}$};
-\node[box,right=of xnext] (target) {encoder target\\misma CNN\\stop-gradient};
+\node[box,below=20mm of xt] (xnext) {future window\\$x_{t+1}$};
+\node[box,right=of xnext] (target) {target encoder\\same CNN\\stop-gradient};
 \node[latent,right=of target] (zplus) {$z^+_{t+1}$};
-\node[loss,right=22mm of zplus] (mse) {MSE predictiva};
+\node[loss,right=22mm of zplus] (mse) {prediction MSE};
 \draw[arrow] (xt)--(online);
 \draw[arrow] (online)--(zt);
 \draw[arrow] (zt)--(pred);
@@ -133,32 +133,32 @@ no revela a qué dinámica pertenece.
 \end{tikzpicture}}
 \end{center}
 
-Se entrena 60 épocas con AdamW. El predictor usa learning rate $4\times$ mayor;
-el encoder se congela tras la época 3 y el target se actualiza por EMA. La loss
-agrega regularización de media, varianza y covarianza para evitar colapso.
+Training runs for 60 epochs with AdamW. The predictor learning rate is
+$4\times$ the encoder rate; the online encoder is frozen after epoch 3 and the
+target follows an EMA update. Mean, variance, and covariance penalties prevent
+collapse.
 
-La dimensión latente 3 coincide con el rango verdadero y el freeze temprano
-estabiliza el ajuste de $M$. Ambos son supuestos del resultado, no propiedades
-generales de JEPA.
+The 3D latent matches the true dynamic rank, and the early encoder freeze
+stabilizes predictor optimization. Both are part of the experimental scope.
 
-\section{Resultado principal: tres operadores}
+\section{The predictor follows the transition law}
 
-Para cada candidato $d$ calculamos
+For each candidate $d$, we compute
 \[
 E_d=\frac{\lVert MA-AK_d\rVert_F}{\lVert A\rVert_F}.
 \]
-También comparamos los autovalores de $M$ en el span activo. El criterio fijado
-antes de correr fue al menos 8/10 seeds correctas por acción y por espectro.
-La loss no participa en esta decisión.
+We also compare the eigenvalues of $M$ on the active span. The predeclared
+criterion is at least 8/10 correct seeds by action and spectrum. Training loss
+does not enter this decision.
 
 \begin{center}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
-\textbf{Dinámica} & \textbf{Acción} & \textbf{Espectro} & \textbf{Error} & \textbf{Margen}\\
+\textbf{Dynamics} & \textbf{Action} & \textbf{Spectrum} & \textbf{Error} & \textbf{Margin}\\
 \midrule
-Estática & 10/10 & 10/10 & 0.142 & 0.806\\
-Cíclica & 10/10 & 10/10 & 0.068 & 0.877\\
-Independiente & 10/10 & 10/10 & 0.015 & 0.981\\
+Static & 10/10 & 10/10 & 0.142 & 0.806\\
+Cyclic & 10/10 & 10/10 & 0.068 & 0.877\\
+Independent & 10/10 & 10/10 & 0.015 & 0.981\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -166,31 +166,38 @@ Independiente & 10/10 & 10/10 & 0.015 & 0.981\\
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/three_dynamics_operator_identification.png}
-\caption{Error mediano contra cada candidato. Cada fila usa los mismos
-marginales observables y un pairing distinto. La diagonal es mínima tanto por
-acción como por espectro.}
+\caption{Median error against each candidate. Rows differ only in temporal
+pairing. The low diagonal shows that the predictor follows the transition law
+rather than single-window statistics.}
 \end{figure}
+
+\section{One-step and multi-step behavior}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.86\textwidth]{figures/three_dynamics_rollout.png}
-\caption{Error $\lVert M^hA-AK^h\rVert_F/\lVert A\rVert_F$. La identificación
-a un paso es clara; en estática y cíclica el error se acumula con el horizonte.}
+\caption{Error $\lVert M^hA-AK^h\rVert_F/\lVert A\rVert_F$. Independent
+dynamics contract rapidly; static and cyclic errors accumulate with horizon.}
 \end{figure}
 
-\section{Generalización a una intensidad continua}
+The learned cyclic action contains the nontrivial active spectrum
+$\{-1,i,-i\}$. Identification is strongest at one step. Repeated application
+of $M$ magnifies small discrepancies, so the experiment does not claim perfect
+long-horizon prediction.
 
-Interpolamos entre el ciclo $C$ y una transición uniforme $U$:
+\section{Continuous dynamic persistence}
+
+We interpolate between the cyclic law $C$ and a uniform law $U$:
 \[
 P_\rho=\rho C+(1-\rho)U,
 \qquad K_\rho=\rho C,
-\qquad \operatorname{spec}(K_\rho)=\rho\{-1,i,-i\}.
+\qquad \sigma(K_\rho)=\rho\{-1,i,-i\}.
 \]
 
 \begin{center}
 \begin{tabular}{@{}rrrr@{}}
 \toprule
-$\boldsymbol{\rho}$ & \textbf{Acción} & \textbf{Espectro} & \textbf{Módulo mediano}\\
+$\boldsymbol{\rho}$ & \textbf{Action} & \textbf{Spectrum} & \textbf{Median modulus}\\
 \midrule
 0.00 & 10/10 & 10/10 & 0.016\\
 0.25 & 10/10 & 10/10 & 0.239\\
@@ -204,62 +211,38 @@ $\boldsymbol{\rho}$ & \textbf{Acción} & \textbf{Espectro} & \textbf{Módulo med
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/decay_spectral_calibration.png}
-\caption{Izquierda: módulo espectral aprendido contra $\rho$. Derecha:
-autovalores esperados y aprendidos en el plano complejo.}
+\caption{Left: learned spectral modulus against persistence. Right: expected
+crosses and learned eigenvalues in the complex plane.}
 \end{figure}
 
-La calibración continua tiene MAE 0.027, pendiente 0.937, intercepto 0.011 y
-$R^2=0.9998$. El criterio discreto de 8/10 en cada nivel no pasa porque
-$\rho=1$ queda en 7/10: algunas seeds eligen el nivel vecino por un sesgo
-contractivo. Se conservan ambas lecturas sin crear un nuevo umbral post-hoc.
+Continuous calibration has MAE 0.027, slope 0.937, intercept 0.011, and
+$R^2=0.9998$. The predictor is slightly contractive at high persistence. Some
+seeds therefore choose the neighboring grid value, and the strict 8/10
+criterion does not pass at $\rho=1$. This is an observed behavior, not replaced
+by a post-hoc threshold.
 
-\section{¿JEPA es lo que hace el trabajo?}
+\section{Conclusion}
 
-Comparamos siete métodos sobre la misma familia continua. Esta tabla corresponde
-a una sola seed de validación: contextualiza el mecanismo, pero no es una
-comparación confirmatoria multiseed.
+\textbf{What the experiment establishes:}
+\begin{itemize}
+  \item JEPA does not collapse to an invariant representation.
+  \item The predictor changes when only temporal pairing changes.
+  \item Its active action and spectrum recover three qualitatively different laws.
+  \item Its spectral radius tracks continuous persistence.
+  \item Small one-step errors accumulate in multi-step rollouts.
+\end{itemize}
 
-\begin{center}
-\small
-\begin{tabularx}{\textwidth}{@{}Xrrr@{}}
-\toprule
-\textbf{Método} & \textbf{MAE espectral} & \textbf{MAE acción} & \textbf{Pendiente}\\
-\midrule
-Oracle de fase + OLS & 0.000 & 0.000 & 1.000\\
-Ventana cruda + DMD & 0.022 & 0.020 & 0.949\\
-PCA-3 + DMD & 0.011 & 0.011 & 0.975\\
-CNN aleatoria + DMD & 0.299 & 0.137 & 0.391\\
-CNN supervisada + DMD & 0.012 & 0.011 & 0.968\\
-JEPA + $M$ aprendido & 0.197 & 0.103 & 0.435\\
-Encoder JEPA + DMD post-hoc & 0.029 & 0.026 & 0.952\\
-\bottomrule
-\end{tabularx}
-\end{center}
+\textbf{Scope:} the result depends on this observation process, 3D latent,
+early encoder freeze, EMA, and anti-collapse regularization. It does not imply
+universal Koopman recovery or robustness to different observations and state
+spaces. It is a controlled characterization of this JEPA's learned dynamics.
 
-JEPA mejora a la CNN aleatoria, pero DMD crudo y PCA+DMD obtienen menor error.
-El encoder JEPA con DMD post-hoc mejora mucho al predictor entrenado, lo que
-sitúa el principal cuello de botella en la optimización conjunta de $M$. Este
-dataset no permite afirmar que JEPA sea necesario ni superior.
+\section*{Reproducibility}
 
-\section{Conclusión exacta}
-
-\textbf{La evidencia sí apoya} que este JEPA puede representar una dinámica no
-trivial y que su espectro responde casi linealmente a la persistencia dinámica,
-bajo la arquitectura, dimensión latente, freeze, EMA, regularizadores y datos
-documentados.
-
-\textbf{La evidencia no apoya} recuperación general de Koopman, superioridad
-sobre métodos lineales, robustez fuera de distribución ni independencia de la
-receta. La comparación de baselines quedó en una seed de validación y su
-held-out no se abrió. El estudio se cierra con este alcance; no se atribuye al
-experimento una conclusión que no fue medida.
-
-\section*{Reproducibilidad}
-
-El flujo completo está reducido a cinco notebooks ejecutados en
-\path{notebooks/}. Las cuatro configuraciones están en \path{configs/}, el
-diseño consolidado en \path{docs/EXPERIMENT.md} y la implementación reutilizable
-en \path{src/koopman_jepa/}. Los tests verifican datos, álgebra, entrenamiento y
-outputs versionados.
+The argument is contained in four executed notebooks under
+\path{notebooks/}. Exact configurations are in \path{configs/}, the consolidated
+design is in \path{docs/EXPERIMENT.md}, and reusable implementation code is in
+\path{src/koopman_jepa/}. Tests cover data generation, operator algebra,
+training, and committed notebook outputs.
 
 \end{document}
