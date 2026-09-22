@@ -70,6 +70,18 @@ learns $z\approx A\psi$, the relevant test is
 The encoder may choose any latent basis, so we do not require $M=K$. We compare
 both the action of $M$ and its spectrum restricted to the active latent span.
 
+\paragraph{Theoretical motivation.}
+Ruiz-Morales et al. show that, under idealized assumptions, a time-series JEPA
+can encode dynamical-regime indicators: Koopman eigenfunctions with
+$\lambda=1$. A near-identity linear predictor selects this interpretable
+invariant solution from equivalent optima. This experiment asks the natural
+next question: can the same predictive architecture move beyond invariants and
+recover nontrivial modes such as $\{-1,i,-i\}$ and
+$\rho\{-1,i,-i\}$? See
+\href{https://doi.org/10.1609/aaai.v40i30.39708}{Ruiz-Morales et al.,
+``Koopman Invariants as Drivers of Emergent Time-Series Clustering in
+Joint-Embedding Predictive Architectures,'' AAAI 2026}.
+
 \section{Controlled observations}
 
 The hidden state has four phases $r\in\{0,1,2,3\}$. Each phase emits a

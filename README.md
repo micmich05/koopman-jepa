@@ -29,6 +29,21 @@ coordinates into the learned latent basis.
 
 [Short PDF report](output/pdf/koopman_jepa_overview.pdf)
 
+## Theoretical motivation
+
+This study starts from [Ruiz-Morales et al. (AAAI 2026), *Koopman Invariants
+as Drivers of Emergent Time-Series Clustering in Joint-Embedding Predictive
+Architectures*](https://doi.org/10.1609/aaai.v40i30.39708). Under idealized
+assumptions, they show that a time-series JEPA can encode regime indicators:
+Koopman eigenfunctions with eigenvalue $\lambda=1$. They also identify a
+near-identity linear predictor as the inductive bias that selects this
+interpretable invariant solution from other equivalent optima.
+
+This repository tests the natural next question. When the hidden phase evolves
+instead of remaining invariant, can JEPA recover non-trivial spectral dynamics?
+The cyclic experiment targets $\{-1,i,-i\}$, while the continuous experiment
+tests contracting modes $\rho\{-1,i,-i\}$ for $0\leq\rho\leq1$.
+
 ## Controlled observations
 
 The hidden state is a phase $r \in \{0,1,2,3\}$. Each phase emits a length-128

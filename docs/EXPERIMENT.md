@@ -8,6 +8,19 @@ Does a temporal JEPA learn a representation `z=fθ(x)` and a linear predictor
 The objective is to characterize JEPA's learned dynamics, not to optimize a
 generic forecasting score.
 
+## Theoretical motivation
+
+[Ruiz-Morales et al. (AAAI 2026)](https://doi.org/10.1609/aaai.v40i30.39708)
+show that, under idealized assumptions, a time-series JEPA can represent
+dynamical-regime indicators. These indicators are Koopman eigenfunctions with
+$\lambda=1$, and a near-identity linear predictor acts as an inductive bias for
+selecting this interpretable invariant solution.
+
+The present experiment asks whether the same predictive architecture can move
+beyond invariants. Its target is a finite-dimensional active subspace with
+non-trivial eigenvalues: $\{-1,i,-i\}$ for a four-phase cycle and
+$\rho\{-1,i,-i\}$ for continuously varying persistence.
+
 ## Controlled setup
 
 - Hidden state: four phases; centered dynamic rank 3.
